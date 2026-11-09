@@ -79,6 +79,34 @@ final class StrokeInbox: NSObject, WCSessionDelegate {
         return s
     }
 
+    /// A roll entered on the watch.
+    private func applyRoll(_ metres: Double?, strokeID: UUID) {
+        let d = FetchDescriptor<PuttStroke>(predicate: #Predicate { $0.id == strokeID })
+        guard let stroke = try? context.fetch(d).first else { return }
+        stroke.distance = metres
+        try? context.save()
+        refreshChart()
+    }
+
+    /// Call after a roll is entered or changed on the phone: tells the watch
+    /// and refreshes the stroke chart it uses for suggestions.
+    func rollChanged(_ stroke: PuttStroke) {
+        if WCSession.isSupported(), WCSession.default.activationState == .activated, !stroke.simulated {
+            WCSession.default.transferUserInfo(StrokeTransfer.payload(roll: stroke.distance, strokeID: stroke.id))
+        }
+        refreshChart()
+    }
+
+    /// Recomputes the stroke chart from every logged roll and shares it with
+    /// the watch if it changed.
+    func refreshChart() {
+        let all = (try? context.fetch(FetchDescriptor<PuttStroke>())) ?? []
+        let chart = all.distanceModel(geometry: settings.geometry)
+        if settings.value.chart != chart {
+            settings.value.chart = chart
+        }
+    }
+
     private func find(_ id: UUID) -> PracticeSession? {
         let d = FetchDescriptor<PracticeSession>(predicate: #Predicate { $0.id == id })
         return try? context.fetch(d).first
@@ -87,10 +115,17 @@ final class StrokeInbox: NSObject, WCSessionDelegate {
     // MARK: WCSessionDelegate
 
     nonisolated func session(_ session: WCSession, activationDidCompleteWith state: WCSessionActivationState, error: Error?) {
-        Task { @MainActor in self.settings.push() }
+        Task { @MainActor in
+            self.refreshChart()
+            self.settings.push()
+        }
     }
 
     nonisolated func session(_ session: WCSession, didReceiveUserInfo userInfo: [String: Any] = [:]) {
+        if let roll = StrokeTransfer.roll(from: userInfo) {
+            Task { @MainActor in self.applyRoll(roll.metres, strokeID: roll.strokeID) }
+            return
+        }
         guard let decoded = StrokeTransfer.stroke(from: userInfo) else { return }
         let (stroke, sessionID) = decoded
         Task { @MainActor in self.add(stroke, sessionID: sessionID, simulated: false) }
