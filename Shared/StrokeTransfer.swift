@@ -82,16 +82,41 @@ struct Units {
     func lengthValue(_ metres: Double) -> Double { metric ? metres * 100 : metres / 0.0254 }
     var lengthUnit: String { metric ? "cm" : "in" }
 
-    /// Roll distance, from metres.
-    func distance(_ metres: Double, decimals: Int = 0) -> String {
-        metric
-            ? String(format: "%.\(max(decimals, 1))f m", metres)
-            : String(format: "%.\(decimals)f ft", metres / 0.3048)
+    // MARK: Roll distance, in the player's own paces
+
+    /// Roll distances are only ever shown and entered in the player's own
+    /// paces, so nobody has to measure their pace: the stroke chart just
+    /// learns "this backswing rolls 4 of my paces". Storage and the fitting
+    /// code still work in metres, so a pace is stored as this nominal length.
+    /// It's never shown, and because every roll uses the same factor it
+    /// doesn't change any fit, suggestion or score.
+    static let paceMetres = 0.9
+
+    /// Rolls are entered and shown to the nearest half pace.
+    static let paceStep = 0.5
+
+    /// Roll distance, from metres, like "4½ paces" or "1 pace".
+    func distance(_ metres: Double) -> String {
+        let p = Self.roundedPaces(distanceValue(metres))
+        return "\(Self.paceNumber(p)) \(p == 1 ? "pace" : "paces")"
     }
 
-    func distanceValue(_ metres: Double) -> Double { metric ? metres : metres / 0.3048 }
-    func metres(fromDistanceValue v: Double) -> Double { metric ? v : v * 0.3048 }
-    var distanceUnit: String { metric ? "m" : "ft" }
+    /// Paces as a number to the nearest half, like "4½", "½" or "12".
+    static func paceNumber(_ paces: Double) -> String {
+        let p = roundedPaces(paces)
+        let whole = Int(p.rounded(.down))
+        let half = p - Double(whole) >= 0.25
+        return half ? (whole == 0 ? "½" : "\(whole)½") : "\(whole)"
+    }
+
+    static func roundedPaces(_ paces: Double) -> Double {
+        max((paces / paceStep).rounded() * paceStep, paceStep)
+    }
+
+    /// Paces, unrounded, from metres.
+    func distanceValue(_ metres: Double) -> Double { metres / Self.paceMetres }
+    func metres(fromDistanceValue paces: Double) -> Double { paces * Self.paceMetres }
+    var distanceUnit: String { "paces" }
 
     static func tempo(_ ratio: Double) -> String { String(format: "%.1f : 1", ratio) }
 }

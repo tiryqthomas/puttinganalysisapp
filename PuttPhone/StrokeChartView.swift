@@ -129,7 +129,7 @@ struct StrokeChartView: View {
                     .foregroundStyle(Color(.separator))
                     .annotation(position: .top, overflowResolution: .init(x: .fit, y: .disabled)) {
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("\(String(format: "%.1f", n.back)) \(u.lengthUnit) → \(String(format: "%.1f", n.roll)) \(u.distanceUnit)")
+                            Text("\(String(format: "%.1f", n.back)) \(u.lengthUnit) → \(Units.paceNumber(n.roll)) \(u.distanceUnit)")
                                 .font(.caption.weight(.semibold))
                             Text("\(n.seriesName) · \(n.date.formatted(date: .abbreviated, time: .omitted))")
                                 .font(.caption2)
@@ -170,7 +170,7 @@ struct CourseSpeedTable: View {
         let u = settings.units
         let selected = speed ?? GreenSpeed(stimp: chart.usualStimp)
         let usual = GreenSpeed(stimp: chart.usualStimp)
-        let targets: [Double] = u.metric ? [1, 2, 3, 5, 7, 10, 12] : [3, 6, 10, 15, 20, 30, 40]
+        let targets: [Double] = [1, 2, 3, 4, 6, 8, 10, 13]
         Section {
             Picker("Course speed", selection: Binding(get: { selected }, set: { speed = $0 })) {
                 // Five words don't fit a segmented control, so segments show the

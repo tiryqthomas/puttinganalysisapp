@@ -14,13 +14,17 @@ struct SettingsView: View {
 
         NavigationStack {
             Form {
-                Section("Units") {
-                    Picker("Units", selection: $settings.value.usesMetric) {
-                        Text("Feet and inches").tag(false)
-                        Text("Metres and centimetres").tag(true)
+                Section {
+                    Picker("Stroke length", selection: $settings.value.usesMetric) {
+                        Text("Inches").tag(false)
+                        Text("Centimetres").tag(true)
                     }
                     .pickerStyle(.inline)
                     .labelsHidden()
+                } header: {
+                    Text("Stroke length")
+                } footer: {
+                    Text("Roll distances are always in your own paces. Use your normal walking step every time and the chart learns how far your stroke rolls in your paces, so there's nothing to measure.")
                 }
 
                 Section {

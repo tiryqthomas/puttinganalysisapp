@@ -22,7 +22,7 @@ enum ScoreInfo: String, CaseIterable, Identifiable {
         case .tempo:
             "Backswing time divided by downswing time (top of the backswing to impact). 0.60 s back and 0.30 s down is 2.0 : 1. Many good putters sit near 2 : 1."
         case .rhythm:
-            "Total time from takeaway to impact. Good putters take about the same time for a 5 ft putt as a 40 ft putt; only the length changes."
+            "Total time from takeaway to impact. Good putters take about the same time for a 2-pace putt as a 12-pace putt; only the length changes."
         case .proportion:
             "Follow-through length compared with backswing length. 120% means you swing through a little farther than you take it back."
         case .distance:
