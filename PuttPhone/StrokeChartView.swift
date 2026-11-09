@@ -173,7 +173,13 @@ struct CourseSpeedTable: View {
         let targets: [Double] = u.metric ? [1, 2, 3, 5, 7, 10, 12] : [3, 6, 10, 15, 20, 30, 40]
         Section {
             Picker("Course speed", selection: Binding(get: { selected }, set: { speed = $0 })) {
-                ForEach(GreenSpeed.allCases) { Text($0.shortTitle).tag($0) }
+                // Five words don't fit a segmented control, so segments show the
+                // Stimp range and the header names the speed.
+                ForEach(GreenSpeed.allCases) { s in
+                    Text(s == .verySlow ? "<7" : s.stimpRange)
+                        .accessibilityLabel(s.title)
+                        .tag(s)
+                }
             }
             .pickerStyle(.segmented)
             .listRowBackground(Color.clear)

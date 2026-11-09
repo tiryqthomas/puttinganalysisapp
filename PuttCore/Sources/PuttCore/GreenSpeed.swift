@@ -9,6 +9,7 @@ import Foundation
 public enum GreenSpeed: String, Codable, CaseIterable, Sendable, Identifiable {
     case verySlow
     case slow
+    case medium
     case fast
     case veryFast
 
@@ -17,8 +18,9 @@ public enum GreenSpeed: String, Codable, CaseIterable, Sendable, Identifiable {
     public var title: String {
         switch self {
         case .verySlow: "Very slow"
-        case .slow: "Slow to medium"
-        case .fast: "Medium-fast to fast"
+        case .slow: "Slow"
+        case .medium: "Medium"
+        case .fast: "Fast"
         case .veryFast: "Very fast"
         }
     }
@@ -28,6 +30,7 @@ public enum GreenSpeed: String, Codable, CaseIterable, Sendable, Identifiable {
         switch self {
         case .verySlow: "Very slow"
         case .slow: "Slow"
+        case .medium: "Medium"
         case .fast: "Fast"
         case .veryFast: "Very fast"
         }
@@ -36,8 +39,9 @@ public enum GreenSpeed: String, Codable, CaseIterable, Sendable, Identifiable {
     public var stimpRange: String {
         switch self {
         case .verySlow: "under 7"
-        case .slow: "7–9"
-        case .fast: "10–12"
+        case .slow: "7–8"
+        case .medium: "9–10"
+        case .fast: "11–12"
         case .veryFast: "13+"
         }
     }
@@ -45,10 +49,11 @@ public enum GreenSpeed: String, Codable, CaseIterable, Sendable, Identifiable {
     /// Where it's usually found, to help a player pick.
     public var example: String {
         switch self {
-        case .verySlow: "Shaggy practice greens, winter, wet days"
-        case .slow: "Most public courses"
-        case .fast: "Well-kept private clubs, tournament prep"
-        case .veryFast: "Tour events, firm summer greens"
+        case .verySlow: "Wet, shaggy or winter greens"
+        case .slow: "Typical municipal course"
+        case .medium: "Typical municipal course, well kept"
+        case .fast: "Private course or tournament conditions"
+        case .veryFast: "Tournament conditions"
         }
     }
 
@@ -56,8 +61,9 @@ public enum GreenSpeed: String, Codable, CaseIterable, Sendable, Identifiable {
     public var typicalStimp: Double {
         switch self {
         case .verySlow: 6
-        case .slow: 8
-        case .fast: 11
+        case .slow: 7.5
+        case .medium: 9.5
+        case .fast: 11.5
         case .veryFast: 13.5
         }
     }
@@ -66,7 +72,8 @@ public enum GreenSpeed: String, Codable, CaseIterable, Sendable, Identifiable {
     public init(stimp: Double) {
         switch stimp {
         case ..<6.5: self = .verySlow
-        case ..<9.5: self = .slow
+        case ..<8.5: self = .slow
+        case ..<10.5: self = .medium
         case ..<12.5: self = .fast
         default: self = .veryFast
         }

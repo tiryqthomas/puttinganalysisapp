@@ -15,7 +15,7 @@ that ties each stroke to how far the ball rolled.
   distance" table) and scores your **consistency** per session.
 - **Green speed:** set how fast the greens are for each session, on the
   watch before you start or on the phone, as a range (very slow under 7,
-  slow to medium 7–9, medium-fast to fast 10–12, very fast 13+) or an exact
+  slow 7–8, medium 9–10, fast 11–12, very fast 13+) or an exact
   Stimp. The stroke chart then shows a curve per speed, and the backswing
   table can be switched to any speed so you can see how to adjust your
   stroke at a faster or slower course.

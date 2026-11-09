@@ -57,7 +57,7 @@ struct GreenSpeedPicker: View {
                         HStack {
                             VStack(alignment: .leading, spacing: 1) {
                                 Text(s.shortTitle)
-                                Text("Stimp \(s.stimpRange)")
+                                Text("Stimp \(s.stimpRange) · \(s.example)")
                                     .font(.footnote)
                                     .foregroundStyle(.secondary)
                             }

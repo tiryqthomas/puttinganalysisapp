@@ -145,8 +145,10 @@ final class GreenSpeedTests: XCTestCase {
     func testRanges() {
         XCTAssertEqual(GreenSpeed(stimp: 6), .verySlow)
         XCTAssertEqual(GreenSpeed(stimp: 7), .slow)
-        XCTAssertEqual(GreenSpeed(stimp: 9), .slow)
-        XCTAssertEqual(GreenSpeed(stimp: 10), .fast)
+        XCTAssertEqual(GreenSpeed(stimp: 8), .slow)
+        XCTAssertEqual(GreenSpeed(stimp: 9), .medium)
+        XCTAssertEqual(GreenSpeed(stimp: 10), .medium)
+        XCTAssertEqual(GreenSpeed(stimp: 11), .fast)
         XCTAssertEqual(GreenSpeed(stimp: 12), .fast)
         XCTAssertEqual(GreenSpeed(stimp: 13), .veryFast)
     }

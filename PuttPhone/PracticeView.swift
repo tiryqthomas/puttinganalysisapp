@@ -292,11 +292,16 @@ struct GreenSpeedRow: View {
     }
 
     var body: some View {
-        LabeledContent("Green speed") {
+        LabeledContent {
             Menu {
                 Picker("Green speed", selection: range) {
                     ForEach(GreenSpeed.allCases) { s in
-                        Text("\(s.title) (\(s.stimpRange))").tag(Optional(s))
+                        // A second Text shows as the menu item's subtitle.
+                        VStack {
+                            Text("\(s.title) (\(s.stimpRange))")
+                            Text(s.example)
+                        }
+                        .tag(Optional(s))
                     }
                     Text("Not set").tag(GreenSpeed?.none)
                 }
@@ -310,6 +315,9 @@ struct GreenSpeedRow: View {
                     Image(systemName: "chevron.up.chevron.down").imageScale(.small)
                 }
             }
+        } label: {
+            Text("Green speed")
+            if let speed = session.greenSpeed { Text(speed.example) }
         }
         .alert("Exact Stimp", isPresented: $enteringExact) {
             TextField("10.5", text: $exactText)

@@ -57,10 +57,11 @@ enum Palette {
     /// (dark to light in dark mode), each with its own marker shape so the
     /// chart never relies on color alone.
     static let speedSeries: [SpeedSeries] = [
-        SpeedSeries(name: GreenSpeed.verySlow.shortTitle, color: dynamic(light: 0x5FB38A, dark: 0x2E7D58), symbol: .circle),
-        SpeedSeries(name: GreenSpeed.slow.shortTitle, color: dynamic(light: 0x2E8B62, dark: 0x4CA97D), symbol: .square),
-        SpeedSeries(name: GreenSpeed.fast.shortTitle, color: dynamic(light: 0x136B47, dark: 0x7FD1A6), symbol: .triangle),
-        SpeedSeries(name: GreenSpeed.veryFast.shortTitle, color: dynamic(light: 0x0A3F2A, dark: 0xC2EED6), symbol: .diamond),
+        SpeedSeries(name: GreenSpeed.verySlow.shortTitle, color: dynamic(light: 0x5FB38A, dark: 0x2A6E4E), symbol: .circle),
+        SpeedSeries(name: GreenSpeed.slow.shortTitle, color: dynamic(light: 0x3E9A6E, dark: 0x3F9268), symbol: .square),
+        SpeedSeries(name: GreenSpeed.medium.shortTitle, color: dynamic(light: 0x23825A, dark: 0x5DB487), symbol: .pentagon),
+        SpeedSeries(name: GreenSpeed.fast.shortTitle, color: dynamic(light: 0x116243, dark: 0x8ED5AE), symbol: .triangle),
+        SpeedSeries(name: GreenSpeed.veryFast.shortTitle, color: dynamic(light: 0x0A3F2A, dark: 0xC8F0DA), symbol: .diamond),
         SpeedSeries(name: "Speed not set", color: Color(.systemGray), symbol: .cross),
     ]
 

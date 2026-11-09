@@ -24,7 +24,7 @@ final class PracticeSession {
 
     var greenSpeed: GreenSpeed? { stimp.map(GreenSpeed.init(stimp:)) }
 
-    /// "Fast (10–12)" or "Stimp 10.5", or nil when not set.
+    /// "Fast (11–12)" or "Stimp 10.5", or nil when not set.
     var speedLabel: String? {
         guard let stimp else { return nil }
         if stimpIsExact { return String(format: "Stimp %.1f", stimp) }
