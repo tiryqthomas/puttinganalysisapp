@@ -1,4 +1,5 @@
 import Foundation
+import HealthKit
 import Observation
 import PuttCore
 import SwiftData
@@ -44,6 +45,13 @@ final class AppSettings {
 final class StrokeInbox: NSObject, WCSessionDelegate {
     @ObservationIgnored private let context: ModelContext
     @ObservationIgnored private let settings: AppSettings
+    @ObservationIgnored private let health = HKHealthStore()
+
+    /// The session the watch is recording, from the moment it's started
+    /// (on either device) until the player taps End.
+    private(set) var activeSessionID: UUID?
+    /// Set when a session ends, so the app can show its recap.
+    var endedSessionID: UUID?
 
     init(context: ModelContext, settings: AppSettings) {
         self.context = context
@@ -58,6 +66,7 @@ final class StrokeInbox: NSObject, WCSessionDelegate {
     /// Adds a stroke to the session with `sessionID`, creating it if needed.
     func add(_ m: StrokeMetrics, sessionID: UUID?, simulated: Bool, stimp: Double? = nil) {
         let session = sessionID.flatMap(find) ?? currentOrNewSession(id: sessionID)
+        if !simulated { activeSessionID = session.id }
         // The watch's green speed fills in a session that doesn't have one yet;
         // a speed already set on the phone wins.
         if session.stimp == nil, let stimp {
@@ -84,20 +93,53 @@ final class StrokeInbox: NSObject, WCSessionDelegate {
         return s
     }
 
+    /// Starts a session from the phone: makes the session here, tells the
+    /// watch its ID and green speed, and opens the watch app, which starts
+    /// measuring and shows Ready. If the watch can't be reached, the player
+    /// can still tap Start on it; strokes go to the newest session.
+    func startSession(speed: GreenSpeed?) {
+        let session = PracticeSession()
+        session.stimp = speed?.typicalStimp
+        context.insert(session)
+        try? context.save()
+        activeSessionID = session.id
+        if WCSession.isSupported(), WCSession.default.activationState == .activated {
+            let message = StrokeTransfer.startPayload(sessionID: session.id, stimp: speed?.typicalStimp)
+            if WCSession.default.isReachable {
+                WCSession.default.sendMessage(message, replyHandler: nil) { _ in
+                    WCSession.default.transferUserInfo(message)
+                }
+            } else {
+                WCSession.default.transferUserInfo(message)
+            }
+        }
+        guard HKHealthStore.isHealthDataAvailable() else { return }
+        let config = HKWorkoutConfiguration()
+        config.activityType = .golf
+        config.locationType = .outdoor
+        health.startWatchApp(with: config) { _, _ in }
+    }
+
     /// A roll entered on the watch.
-    private func applyRoll(_ metres: Double?, strokeID: UUID) {
+    private func applyRoll(_ metres: Double?, landmark: Landmark?, strokeID: UUID) {
         let d = FetchDescriptor<PuttStroke>(predicate: #Predicate { $0.id == strokeID })
         guard let stroke = try? context.fetch(d).first else { return }
         stroke.distance = metres
+        stroke.landmark = metres == nil ? nil : landmark
         try? context.save()
         refreshChart()
+    }
+
+    private func sessionEnded(_ id: UUID) {
+        if activeSessionID == id || activeSessionID == nil { activeSessionID = nil }
+        if let s = find(id), !s.strokes.isEmpty { endedSessionID = id }
     }
 
     /// Call after a roll is entered or changed on the phone: tells the watch
     /// and refreshes the stroke chart it uses for suggestions.
     func rollChanged(_ stroke: PuttStroke) {
         if WCSession.isSupported(), WCSession.default.activationState == .activated, !stroke.simulated {
-            WCSession.default.transferUserInfo(StrokeTransfer.payload(roll: stroke.distance, strokeID: stroke.id))
+            WCSession.default.transferUserInfo(StrokeTransfer.payload(roll: stroke.distance, landmark: stroke.landmark, strokeID: stroke.id))
         }
         refreshChart()
     }
@@ -110,6 +152,7 @@ final class StrokeInbox: NSObject, WCSessionDelegate {
         if settings.value.chart != chart {
             settings.value.chart = chart
         }
+        PuttingCardData.publish(chart: chart, units: settings.units)
     }
 
     private func find(_ id: UUID) -> PracticeSession? {
@@ -128,7 +171,11 @@ final class StrokeInbox: NSObject, WCSessionDelegate {
 
     nonisolated func session(_ session: WCSession, didReceiveUserInfo userInfo: [String: Any] = [:]) {
         if let roll = StrokeTransfer.roll(from: userInfo) {
-            Task { @MainActor in self.applyRoll(roll.metres, strokeID: roll.strokeID) }
+            Task { @MainActor in self.applyRoll(roll.metres, landmark: roll.landmark, strokeID: roll.strokeID) }
+            return
+        }
+        if let ended = StrokeTransfer.ended(from: userInfo) {
+            Task { @MainActor in self.sessionEnded(ended) }
             return
         }
         guard let decoded = StrokeTransfer.stroke(from: userInfo) else { return }

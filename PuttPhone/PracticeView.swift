@@ -21,6 +21,9 @@ struct PracticeView: View {
     var body: some View {
         NavigationStack {
             List {
+                if inbox.activeSessionID == nil {
+                    StartCard(lastSession: sessions.first { !$0.strokes.isEmpty }, chart: chart)
+                }
                 if let session, let latest = session.orderedStrokes.last {
                     Section {
                         StrokeDetail(stroke: latest)
@@ -188,6 +191,19 @@ struct DistanceEntry: View {
             }
             .font(.title3)
 
+            // Optional: where the putter stopped against the foot.
+            LabeledContent {
+                Picker("Landmark", selection: landmark) {
+                    Text("None").tag(Landmark?.none)
+                    ForEach(Landmark.allCases) { Text($0.title).tag(Optional($0)) }
+                }
+                .labelsHidden()
+                .pickerStyle(.menu)
+            } label: {
+                Text("Landmark")
+                Text(Landmark.explanation)
+            }
+
             HStack(spacing: 12) {
                 if let s = suggestion, stroke.distance == nil {
                     Button {
@@ -215,6 +231,18 @@ struct DistanceEntry: View {
         .onAppear(perform: load)
         .onChange(of: stroke.id) { load() }
         .onChange(of: stroke.distance) { if !focused { load() } }
+    }
+
+    private var landmark: Binding<Landmark?> {
+        Binding(
+            get: { stroke.landmark },
+            set: { value in
+                stroke.landmark = value
+                try? context.save()
+                // Without a roll it's sent with the roll when that's saved.
+                if stroke.distance != nil { inbox.rollChanged(stroke) }
+            }
+        )
     }
 
     private var parsed: Double? {
@@ -447,7 +475,7 @@ struct EmptyPractice: View {
         ContentUnavailableView {
             Label("No strokes yet", systemImage: "figure.golf")
         } description: {
-            Text("Start a session on your watch and putt. Each stroke shows up here so you can enter how far the ball rolled. Tap the waveform button to try it with a simulated stroke.")
+            Text("Start a session above or on your watch and putt. Each stroke shows up here so you can enter how far the ball rolled. Tap the waveform button to try it with a simulated stroke.")
         }
     }
 }

@@ -14,6 +14,9 @@ enum StrokeTransfer {
     static let rollStrokeKey = "rollStrokeID"
     static let rollKey = "roll"
     static let stimpKey = "stimp"
+    static let landmarkKey = "landmark"
+    static let startKey = "startSession"
+    static let endKey = "endedSession"
 
     /// `stimp` is the green speed picked on the watch for this session.
     static func payload(for stroke: StrokeMetrics, sessionID: UUID, stimp: Double?) -> [String: Any] {
@@ -30,16 +33,37 @@ enum StrokeTransfer {
         return (stroke, session, userInfo[stimpKey] as? Double)
     }
 
-    /// A roll distance for a stroke, in metres. `nil` clears it, which marks
-    /// the stroke as a practice swing.
-    static func payload(roll metres: Double?, strokeID: UUID) -> [String: Any] {
-        [rollStrokeKey: strokeID.uuidString, rollKey: metres ?? -1]
+    /// A roll distance for a stroke, in metres, with the optional landmark
+    /// the player noted. A `nil` roll clears it, which marks the stroke as a
+    /// practice swing.
+    static func payload(roll metres: Double?, landmark: Landmark?, strokeID: UUID) -> [String: Any] {
+        [rollStrokeKey: strokeID.uuidString, rollKey: metres ?? -1, landmarkKey: landmark?.rawValue ?? -1]
     }
 
-    static func roll(from userInfo: [String: Any]) -> (strokeID: UUID, metres: Double?)? {
+    static func roll(from userInfo: [String: Any]) -> (strokeID: UUID, metres: Double?, landmark: Landmark?)? {
         guard let id = (userInfo[rollStrokeKey] as? String).flatMap(UUID.init(uuidString:)),
               let value = userInfo[rollKey] as? Double else { return nil }
-        return (id, value > 0 ? value : nil)
+        let landmark = (userInfo[landmarkKey] as? Int).flatMap(Landmark.init(rawValue:))
+        return (id, value > 0 ? value : nil, landmark)
+    }
+
+    /// Phone → watch: start a session with this ID and green speed. Sent
+    /// just before the phone launches the watch app.
+    static func startPayload(sessionID: UUID, stimp: Double?) -> [String: Any] {
+        [startKey: sessionID.uuidString, stimpKey: stimp ?? -1]
+    }
+
+    static func start(from userInfo: [String: Any]) -> (sessionID: UUID, stimp: Double?)? {
+        guard let id = (userInfo[startKey] as? String).flatMap(UUID.init(uuidString:)) else { return nil }
+        let stimp = (userInfo[stimpKey] as? Double).flatMap { $0 > 0 ? $0 : nil }
+        return (id, stimp)
+    }
+
+    /// Watch → phone: the player tapped End, so the phone can show the recap.
+    static func endPayload(sessionID: UUID) -> [String: Any] { [endKey: sessionID.uuidString] }
+
+    static func ended(from userInfo: [String: Any]) -> UUID? {
+        (userInfo[endKey] as? String).flatMap(UUID.init(uuidString:))
     }
 }
 
@@ -111,6 +135,11 @@ struct Units {
 
     static func roundedPaces(_ paces: Double) -> Double {
         max((paces / paceStep).rounded() * paceStep, paceStep)
+    }
+
+    /// A difference in paces to the nearest half, which can be zero or negative.
+    static func roundedPacesSigned(_ paces: Double) -> Double {
+        (paces / paceStep).rounded() * paceStep
     }
 
     /// Paces, unrounded, from metres.

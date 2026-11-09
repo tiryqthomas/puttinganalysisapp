@@ -69,6 +69,30 @@ public enum Consistency {
         return r
     }
 
+    /// Where a score sits against the player's own recent sessions.
+    public enum Placement: Sendable, Equatable {
+        case below, within, above
+    }
+
+    /// Sessions a usual range needs before it means anything.
+    public static let minimumSessionsForRange = 3
+
+    /// The player's usual range for a score: the mean of their recent
+    /// sessions, give or take one standard deviation, and never narrower
+    /// than ±3 points so a single steady week doesn't make every session
+    /// look unusual. Nil with fewer than `minimumSessionsForRange` scores.
+    public static func usualRange(of scores: [Double]) -> ClosedRange<Double>? {
+        guard scores.count >= minimumSessionsForRange else { return nil }
+        let m = mean(scores)
+        let sd = (scores.reduce(0) { $0 + ($1 - m) * ($1 - m) } / Double(scores.count)).squareRoot()
+        let half = max(sd, 3)
+        return max(0, m - half)...min(100, m + half)
+    }
+
+    public static func placement(of score: Double, in range: ClosedRange<Double>) -> Placement {
+        score < range.lowerBound ? .below : score > range.upperBound ? .above : .within
+    }
+
     static func score(cv: Double, zeroAt: Double) -> Double {
         guard cv.isFinite, zeroAt > 0 else { return 0 }
         return min(100, max(0, 100 * (1 - cv / zeroAt)))

@@ -7,6 +7,10 @@ import WatchKit
 /// State for one practice session on the watch.
 @Observable
 final class PracticeModel: NSObject, WCSessionDelegate {
+    /// One model for the app, so the app delegate can start a session
+    /// when the phone opens the app.
+    static let shared = PracticeModel()
+
     enum Status: Equatable {
         case idle
         case settling   // waiting for stillness at address
@@ -24,6 +28,8 @@ final class PracticeModel: NSObject, WCSessionDelegate {
     private(set) var lastRejected: Date?
     /// Roll distances in metres, by stroke. Entered here or on the phone.
     private(set) var rolls: [UUID: Double] = [:]
+    /// Optional landmarks noted with a roll, by stroke.
+    private(set) var landmarks: [UUID: Landmark] = [:]
 
     @ObservationIgnored private let motion = MotionCapture()
     @ObservationIgnored private let workout = WorkoutKeeper()
@@ -65,11 +71,13 @@ final class PracticeModel: NSObject, WCSessionDelegate {
     }
 
     /// Records how far the ball rolled for a stroke (nil for a practice
-    /// swing) and sends it to the phone.
-    func setRoll(_ metres: Double?, for id: UUID) {
+    /// swing), with the landmark if the player noted one, and sends it to
+    /// the phone.
+    func setRoll(_ metres: Double?, landmark: Landmark? = nil, for id: UUID) {
         rolls[id] = metres
+        landmarks[id] = metres == nil ? nil : landmark
         if WCSession.default.activationState == .activated {
-            WCSession.default.transferUserInfo(StrokeTransfer.payload(roll: metres, strokeID: id))
+            WCSession.default.transferUserInfo(StrokeTransfer.payload(roll: metres, landmark: landmarks[id], strokeID: id))
         }
     }
 
@@ -94,11 +102,14 @@ final class PracticeModel: NSObject, WCSessionDelegate {
         }
     }
 
-    func start() {
+    /// `sessionID` is set when the phone started the session, so its strokes
+    /// land in the session the phone already made.
+    func start(sessionID id: UUID? = nil) {
         guard !isRunning else { return }
         strokes = []
         rolls = [:]
-        sessionID = UUID()
+        landmarks = [:]
+        sessionID = id ?? UUID()
         lastRejected = nil
         status = .settling
         Task { await workout.start() }
@@ -111,6 +122,9 @@ final class PracticeModel: NSObject, WCSessionDelegate {
         motion.stop()
         workout.stop()
         status = .idle
+        if !strokes.isEmpty, WCSession.default.activationState == .activated {
+            WCSession.default.transferUserInfo(StrokeTransfer.endPayload(sessionID: sessionID))
+        }
         if settings.watchHaptics { WKInterfaceDevice.current().play(.stop) }
     }
 
@@ -136,10 +150,37 @@ final class PracticeModel: NSObject, WCSessionDelegate {
         }
     }
 
-    /// A roll entered on the phone.
+    /// The phone asked to start a session. The watch app may already be
+    /// running it, if the phone launched it with a workout first; then it
+    /// just takes the phone's session ID and green speed.
+    func applyStart(sessionID id: UUID, stimp: Double?) {
+        if let stimp { greenSpeed = GreenSpeed(stimp: stimp) }
+        if !isRunning {
+            start(sessionID: id)
+        } else if strokes.isEmpty {
+            sessionID = id
+        }
+    }
+
+    /// A roll entered on the phone, or a start request.
     func session(_ session: WCSession, didReceiveUserInfo userInfo: [String: Any] = [:]) {
-        guard let roll = StrokeTransfer.roll(from: userInfo) else { return }
-        DispatchQueue.main.async { self.rolls[roll.strokeID] = roll.metres }
+        handleMessage(userInfo)
+    }
+
+    func session(_ session: WCSession, didReceiveMessage message: [String: Any]) {
+        handleMessage(message)
+    }
+
+    private func handleMessage(_ info: [String: Any]) {
+        if let start = StrokeTransfer.start(from: info) {
+            DispatchQueue.main.async { self.applyStart(sessionID: start.sessionID, stimp: start.stimp) }
+            return
+        }
+        guard let roll = StrokeTransfer.roll(from: info) else { return }
+        DispatchQueue.main.async {
+            self.rolls[roll.strokeID] = roll.metres
+            self.landmarks[roll.strokeID] = roll.landmark
+        }
     }
 
     func session(_ session: WCSession, didReceiveApplicationContext context: [String: Any]) {

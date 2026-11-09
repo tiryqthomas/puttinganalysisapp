@@ -60,7 +60,17 @@ struct ProgressScreen: View {
                     } header: {
                         Text("\(metric.rawValue) score by session")
                     } footer: {
-                        Text(footnote)
+                        Text(footnote + " The shaded band is your usual range.")
+                    }
+
+                    ComparisonSections(rows: rows.map { ($0.session.startedAt, $0.report) })
+
+                    Section {
+                        NavigationLink {
+                            PuttLogView(chart: chartModel)
+                        } label: {
+                            Label("Putt log", systemImage: "list.bullet")
+                        }
                     }
 
                     Section("Sessions") {
@@ -93,12 +103,19 @@ struct ProgressScreen: View {
         let pts = rows.compactMap { r in metric.value(r.report).map { (date: r.session.startedAt, score: $0) } }
             .sorted { $0.date < $1.date }
         let nearest = selectedDate.flatMap { d in pts.min { abs($0.date.timeIntervalSince(d)) < abs($1.date.timeIntervalSince(d)) } }
+        // Usual range from the sessions before the latest, so the latest can stand out.
+        let usual = Consistency.usualRange(of: pts.dropLast().suffix(10).map(\.score))
 
         if pts.isEmpty {
             Text("Not enough strokes in any session for this score yet.")
                 .foregroundStyle(.secondary)
         } else {
             Chart {
+                if let usual {
+                    RectangleMark(yStart: .value("Usual low", usual.lowerBound), yEnd: .value("Usual high", usual.upperBound))
+                        .foregroundStyle(Palette.tint.opacity(0.14))
+                        .accessibilityLabel("Your usual range, \(Int(usual.lowerBound.rounded())) to \(Int(usual.upperBound.rounded()))")
+                }
                 ForEach(pts, id: \.date) { p in
                     LineMark(x: .value("Session", p.date), y: .value("Score", p.score))
                         .foregroundStyle(Palette.tint)
@@ -159,6 +176,7 @@ struct SessionDetail: View {
     @Bindable var session: PracticeSession
     let chart: SpeedChart?
     @State private var editing: PuttStroke?
+    @State private var showingRecap = false
 
     var body: some View {
         let strokes = session.orderedStrokes
@@ -166,6 +184,7 @@ struct SessionDetail: View {
             Section {
                 GreenSpeedRow(session: session)
                 TextField("Where, conditions, anything to remember", text: $session.note, axis: .vertical)
+                Button("See recap") { showingRecap = true }
             } header: {
                 Text("Session")
             }
@@ -182,6 +201,7 @@ struct SessionDetail: View {
         .navigationTitle(session.startedAt.formatted(date: .abbreviated, time: .omitted))
         .navigationBarTitleDisplayMode(.inline)
         .onDisappear { try? context.save() }
+        .sheet(isPresented: $showingRecap) { RecapView(session: session) }
         .sheet(item: $editing) { stroke in
             NavigationStack {
                 List {
@@ -195,6 +215,56 @@ struct SessionDetail: View {
                 }
             }
             .presentationDetents([.medium, .large])
+        }
+    }
+}
+
+/// The latest session against the ones before it, and the best of each score.
+struct ComparisonSections: View {
+    let rows: [(date: Date, report: ConsistencyReport)]
+
+    var body: some View {
+        let sorted = rows.sorted { $0.date < $1.date }.filter { $0.report.overall != nil }
+        if sorted.count >= 2, let latest = sorted.last {
+            let earlier = sorted.dropLast().map(\.report)
+            Section {
+                ForEach(ScoreKind.allCases) { kind in
+                    if let v = kind.value(latest.report) {
+                        let before = earlier.compactMap(kind.value)
+                        LabeledContent(kind.title) {
+                            HStack(spacing: 10) {
+                                Text("\(Int(v.rounded()))").fontWeight(.semibold)
+                                if !before.isEmpty {
+                                    let d = Int((v - before.reduce(0, +) / Double(before.count)).rounded())
+                                    Text(d > 0 ? "+\(d)" : d < 0 ? "−\(-d)" : "±0")
+                                        .foregroundStyle(.secondary)
+                                        .frame(minWidth: 36, alignment: .trailing)
+                                }
+                            }
+                            .monospacedDigit()
+                        }
+                    }
+                }
+            } header: {
+                Text("Latest session vs. your average")
+            }
+
+            Section("Personal bests") {
+                ForEach(ScoreKind.allCases) { kind in
+                    let all = sorted.compactMap { r in kind.value(r.report).map { (r.date, $0) } }
+                    if let best = all.max(by: { $0.1 < $1.1 }) {
+                        LabeledContent(kind.title) {
+                            HStack(spacing: 10) {
+                                Text("\(Int(best.1.rounded()))").fontWeight(.semibold)
+                                Text(best.0.formatted(.dateTime.month(.abbreviated).day()))
+                                    .foregroundStyle(.secondary)
+                                    .frame(minWidth: 56, alignment: .trailing)
+                            }
+                            .monospacedDigit()
+                        }
+                    }
+                }
+            }
         }
     }
 }

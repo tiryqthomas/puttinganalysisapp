@@ -24,6 +24,21 @@ that ties each stroke to how far the ball rolled.
   Stimp. The stroke chart then shows a curve per speed, and the backswing
   table can be switched to any speed so you can see how to adjust your
   stroke at a faster or slower course.
+- **Start from the phone:** the Practice tab has a **Start session** card
+  with the green speed. It opens the watch app, which starts measuring and
+  shows Ready. You can still start on the watch.
+- **Landmarks (optional):** under the roll on the watch, or under the roll
+  distance on the phone, note where the putter head stopped against your
+  foot (inside, inside-middle, middle, outside-middle, outside), relative
+  to where the putter starts on your foot. **Chart → Landmarks** then shows
+  the landmark for each roll, and it moves with green speed.
+- **Review:** tapping End on the watch opens a recap on the phone with each
+  score against your usual range and any new best. Progress shows your
+  usual range on the chart, the latest session against your average,
+  personal bests and a putt log.
+- **Putting card:** on the Chart tab, your backswing for each roll at one
+  green speed. **Add to Lock Screen** explains how to put it on your Lock
+  Screen as a widget; it follows the speed picked on the Chart tab.
 
 This first milestone is putt analysis only. The green-slope level and
 break/speed estimates come later.
@@ -54,7 +69,11 @@ open PuttingApp.xcodeproj
 PuttPhone and PuttWatch targets, open **Signing & Capabilities** and pick
 your Apple ID's Personal Team. If a bundle ID is taken, change
 `com.tiryqthomas.putting` (keep the watch app's ID as the phone's ID plus
-`.watchkitapp`). Run on your iPhone; the watch app installs alongside it.
+`.watchkitapp`, and the widget's as the phone's ID plus `.widget`). The
+phone and the widget share an App Group, `group.com.tiryqthomas.putting`;
+if you change the bundle ID, change the group to match in **Signing &
+Capabilities** and in `SharedWidget/PuttingCardData.swift`. Run on your
+iPhone; the watch app installs alongside it.
 
 No watch handy? On the iPhone's Practice tab, tap the waveform button to
 add a simulated stroke. It runs through the same analysis code as a real
@@ -91,6 +110,17 @@ own, it gets its own curve from just those putts (shown solid). Distance
 control compares rolls after the same scaling, so changing greens doesn't
 hurt your score. Rolls with no speed set are treated as your usual speed.
 
+## How landmarks are handled
+
+A landmark is a fixed spot on your foot, so it always means the same
+backswing length. Each landmark you note collects the backswings that
+ended there, and its typical backswing is their median. To show the
+landmark for a roll, the app asks the stroke chart for the backswing that
+roll needs at the chosen green speed, then picks the landmark you've used
+whose typical backswing is closest. Faster greens need a shorter
+backswing, so the same roll moves toward the inside of your foot. Below 5
+notes at a speed, the screen says it's estimated.
+
 ## Checking the detector without Xcode
 
 `Tools/sim_check.py` is a Python mirror of the detector. It runs 40
@@ -110,4 +140,6 @@ If you change a threshold in the Swift detector, change it there too.
 | `PuttWatch/` | watchOS app: motion capture, workout session, live stroke screens |
 | `PuttPhone/` | iOS app: distance entry, stroke chart, progress, settings |
 | `Shared/` | Watch ↔ phone messages and unit formatting |
+| `PuttWidget/` | Lock Screen widget: the Putting card |
+| `SharedWidget/` | The Putting card data the phone writes and the widget reads |
 | `Tools/` | Python mirror of the detector for quick checks |

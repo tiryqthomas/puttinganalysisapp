@@ -26,20 +26,51 @@ targets:
     sources:
       - PuttPhone
       - Shared
+      - SharedWidget
     dependencies:
       - package: PuttCore
       - target: PuttWatch
+      - target: PuttWidget
+      - sdk: HealthKit.framework
     info:
       path: PuttPhone/Info.plist
       properties:
         CFBundleDisplayName: Putting
         UILaunchScreen: {}
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+        NSHealthShareUsageDescription: Putting opens the watch app with a golf workout so it can start measuring when you tap Start session. It doesn't read your health data.
+        NSHealthUpdateUsageDescription: Putting opens the watch app with a golf workout. Nothing is saved to Health.
+    entitlements:
+      path: PuttPhone/PuttPhone.entitlements
+      properties:
+        com.apple.developer.healthkit: true
+        com.apple.security.application-groups: [group.com.tiryqthomas.putting]
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.tiryqthomas.putting
         TARGETED_DEVICE_FAMILY: "1"
         ASSETCATALOG_COMPILER_APPICON_NAME: ""
+
+  PuttWidget:
+    type: app-extension
+    platform: iOS
+    sources:
+      - PuttWidget
+      - SharedWidget
+    info:
+      path: PuttWidget/Info.plist
+      properties:
+        CFBundleDisplayName: Putting
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    entitlements:
+      path: PuttWidget/PuttWidget.entitlements
+      properties:
+        com.apple.security.application-groups: [group.com.tiryqthomas.putting]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.tiryqthomas.putting.widget
+        TARGETED_DEVICE_FAMILY: "1"
 
   PuttWatch:
     type: application
@@ -76,6 +107,7 @@ schemes:
       targets:
         PuttPhone: all
         PuttWatch: all
+        PuttWidget: all
     test:
       targets:
         - package: PuttCore/PuttCoreTests

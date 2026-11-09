@@ -47,6 +47,9 @@ final class PuttStroke {
     /// How far the ball rolled, in metres. Nil until the player enters it;
     /// strokes left without a distance count as practice swings.
     var distance: Double?
+    /// Where the putter head stopped against the player's foot, if they
+    /// noted it. Stored as `Landmark.rawValue`.
+    var landmarkRaw: Int?
     /// True when the stroke came from the simulator rather than the watch.
     var simulated: Bool
     var session: PracticeSession?
@@ -78,6 +81,15 @@ final class PuttStroke {
         )
     }
 
+    var landmark: Landmark? {
+        get { landmarkRaw.flatMap(Landmark.init(rawValue:)) }
+        set { landmarkRaw = newValue?.rawValue }
+    }
+
+    func landmarkPoint(_ g: StrokeGeometry) -> LandmarkPoint? {
+        landmark.map { LandmarkPoint(backswing: g.length(forAngle: backswingAngle), landmark: $0, stimp: session?.stimp) }
+    }
+
     func speedPoint(_ g: StrokeGeometry) -> SpeedPoint? {
         distance.map { SpeedPoint(backswing: g.length(forAngle: backswingAngle), distance: $0, stimp: session?.stimp) }
     }
@@ -98,5 +110,9 @@ extension Array where Element == PuttStroke {
 
     func speedChart(geometry g: StrokeGeometry) -> SpeedChart? {
         SpeedChart(points: compactMap { $0.speedPoint(g) })
+    }
+
+    func landmarkMap(geometry g: StrokeGeometry) -> LandmarkMap? {
+        LandmarkMap(points: compactMap { $0.landmarkPoint(g) })
     }
 }
