@@ -1,3 +1,5 @@
+import Charts
+import PuttCore
 import SwiftData
 import SwiftUI
 
@@ -45,6 +47,30 @@ struct RootView: View {
 }
 
 enum Palette {
+    struct SpeedSeries {
+        let name: String
+        let color: Color
+        let symbol: BasicChartSymbolShape
+    }
+
+    /// Green speeds are ordered, so they share one hue stepped light to dark
+    /// (dark to light in dark mode), each with its own marker shape so the
+    /// chart never relies on color alone.
+    static let speedSeries: [SpeedSeries] = [
+        SpeedSeries(name: GreenSpeed.verySlow.shortTitle, color: dynamic(light: 0x5FB38A, dark: 0x2E7D58), symbol: .circle),
+        SpeedSeries(name: GreenSpeed.slow.shortTitle, color: dynamic(light: 0x2E8B62, dark: 0x4CA97D), symbol: .square),
+        SpeedSeries(name: GreenSpeed.fast.shortTitle, color: dynamic(light: 0x136B47, dark: 0x7FD1A6), symbol: .triangle),
+        SpeedSeries(name: GreenSpeed.veryFast.shortTitle, color: dynamic(light: 0x0A3F2A, dark: 0xC2EED6), symbol: .diamond),
+        SpeedSeries(name: "Speed not set", color: Color(.systemGray), symbol: .cross),
+    ]
+
+    private static func dynamic(light: UInt32, dark: UInt32) -> Color {
+        func ui(_ hex: UInt32) -> UIColor {
+            UIColor(red: CGFloat((hex >> 16) & 0xFF) / 255, green: CGFloat((hex >> 8) & 0xFF) / 255, blue: CGFloat(hex & 0xFF) / 255, alpha: 1)
+        }
+        return Color(UIColor { $0.userInterfaceStyle == .dark ? ui(dark) : ui(light) })
+    }
+
     /// The one interactive color: a deep fairway green in light mode, a
     /// brighter one in dark mode so it holds contrast on black.
     static let tint = Color(UIColor { traits in

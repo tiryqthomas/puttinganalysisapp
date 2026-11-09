@@ -13,17 +13,21 @@ enum StrokeTransfer {
     static let sessionKey = "sessionID"
     static let rollStrokeKey = "rollStrokeID"
     static let rollKey = "roll"
+    static let stimpKey = "stimp"
 
-    static func payload(for stroke: StrokeMetrics, sessionID: UUID) -> [String: Any] {
+    /// `stimp` is the green speed picked on the watch for this session.
+    static func payload(for stroke: StrokeMetrics, sessionID: UUID, stimp: Double?) -> [String: Any] {
         let data = (try? JSONEncoder().encode(stroke)) ?? Data()
-        return [strokeKey: data, sessionKey: sessionID.uuidString]
+        var info: [String: Any] = [strokeKey: data, sessionKey: sessionID.uuidString]
+        if let stimp { info[stimpKey] = stimp }
+        return info
     }
 
-    static func stroke(from userInfo: [String: Any]) -> (StrokeMetrics, UUID?)? {
+    static func stroke(from userInfo: [String: Any]) -> (stroke: StrokeMetrics, sessionID: UUID?, stimp: Double?)? {
         guard let data = userInfo[strokeKey] as? Data,
               let stroke = try? JSONDecoder().decode(StrokeMetrics.self, from: data) else { return nil }
         let session = (userInfo[sessionKey] as? String).flatMap(UUID.init(uuidString:))
-        return (stroke, session)
+        return (stroke, session, userInfo[stimpKey] as? Double)
     }
 
     /// A roll distance for a stroke, in metres. `nil` clears it, which marks
@@ -45,7 +49,7 @@ struct SharedSettings: Codable, Equatable {
     var usesMetric: Bool = Locale.current.measurementSystem == .metric
     var watchHaptics: Bool = true
     /// The player's stroke chart, so the watch can suggest a roll distance.
-    var chart: DistanceModel?
+    var chart: SpeedChart?
 
     static let contextKey = "settings"
 

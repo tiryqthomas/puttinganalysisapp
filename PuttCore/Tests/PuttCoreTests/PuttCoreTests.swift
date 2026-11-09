@@ -140,3 +140,53 @@ final class GeometryTests: XCTestCase {
         XCTAssertEqual(g.length(forAngle: 0.1), 0.12, accuracy: 1e-9)
     }
 }
+
+final class GreenSpeedTests: XCTestCase {
+    func testRanges() {
+        XCTAssertEqual(GreenSpeed(stimp: 6), .verySlow)
+        XCTAssertEqual(GreenSpeed(stimp: 7), .slow)
+        XCTAssertEqual(GreenSpeed(stimp: 9), .slow)
+        XCTAssertEqual(GreenSpeed(stimp: 10), .fast)
+        XCTAssertEqual(GreenSpeed(stimp: 12), .fast)
+        XCTAssertEqual(GreenSpeed(stimp: 13), .veryFast)
+    }
+
+    /// Rolls on 8 and 11 greens that follow distance ∝ Stimp × backswing².
+    private func rolls(stimp: Double, count: Int) -> [SpeedPoint] {
+        (0..<count).map { i in
+            let back = 0.08 + 0.04 * Double(i)
+            return SpeedPoint(backswing: back, distance: 6 * stimp * back * back, stimp: stimp)
+        }
+    }
+
+    func testEstimatesASpeedWithNoPutts() throws {
+        let chart = try XCTUnwrap(SpeedChart(points: rolls(stimp: 8, count: 6)))
+        XCTAssertTrue(chart.isMeasured(.slow))
+        XCTAssertFalse(chart.isMeasured(.veryFast))
+        // No putts at 13.5, so it's scaled from the 8s: 13.5/8 as far.
+        XCTAssertEqual(chart.distance(forBackswing: 0.2, stimp: 13.5), 6 * 13.5 * 0.04, accuracy: 0.01)
+        // And a 20 ft putt needs a shorter stroke on the faster green.
+        let d = 20 * 0.3048
+        XCTAssertLessThan(chart.backswing(forDistance: d, stimp: 13.5), chart.backswing(forDistance: d, stimp: 8))
+    }
+
+    func testUsesOwnPuttsOnceThereAreEnough() throws {
+        // The player's fast-green putts roll 20% shorter than Stimp alone predicts.
+        var points = rolls(stimp: 8, count: 6)
+        points += (0..<6).map { i in
+            let back = 0.08 + 0.04 * Double(i)
+            return SpeedPoint(backswing: back, distance: 0.8 * 6 * 11 * back * back, stimp: 11)
+        }
+        let chart = try XCTUnwrap(SpeedChart(points: points))
+        XCTAssertTrue(chart.isMeasured(.fast))
+        XCTAssertEqual(chart.distance(forBackswing: 0.2, stimp: 11), 0.8 * 6 * 11 * 0.04, accuracy: 0.01)
+        XCTAssertEqual(chart.counts[.fast], 6)
+    }
+
+    func testRollsWithoutSpeedUseTheUsualSpeed() throws {
+        let unknown = (0..<4).map { i in SpeedPoint(backswing: 0.1 + 0.05 * Double(i), distance: 1 + Double(i), stimp: nil) }
+        let chart = try XCTUnwrap(SpeedChart(points: unknown))
+        XCTAssertEqual(chart.usualStimp, SpeedChart.referenceStimp)
+        XCTAssertTrue(chart.measured.isEmpty)
+    }
+}

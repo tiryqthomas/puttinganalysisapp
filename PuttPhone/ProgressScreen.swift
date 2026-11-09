@@ -38,10 +38,10 @@ struct ProgressScreen: View {
 
     var body: some View {
         let g = settings.geometry
-        let chartModel = allStrokes.distanceModel(geometry: g)
+        let chartModel = allStrokes.speedChart(geometry: g)
         let rows = sessions
             .filter { !$0.strokes.isEmpty }
-            .map { Row(session: $0, report: $0.orderedStrokes.report(geometry: g, model: chartModel)) }
+            .map { Row(session: $0, report: $0.orderedStrokes.report(geometry: g, chart: chartModel)) }
 
         NavigationStack {
             List {
@@ -139,7 +139,7 @@ struct SessionRow: View {
         HStack {
             VStack(alignment: .leading, spacing: 2) {
                 Text(session.startedAt.formatted(date: .abbreviated, time: .shortened))
-                Text(session.note.isEmpty ? "\(report.strokeCount) strokes" : "\(report.strokeCount) strokes · \(session.note)")
+                Text(([("\(report.strokeCount) strokes")] + [session.speedLabel, session.note.isEmpty ? nil : session.note].compactMap { $0 }).joined(separator: " · "))
                     .font(.footnote)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
@@ -157,19 +157,20 @@ struct SessionDetail: View {
     @Environment(\.modelContext) private var context
     @Environment(AppSettings.self) private var settings
     @Bindable var session: PracticeSession
-    let chart: DistanceModel?
+    let chart: SpeedChart?
     @State private var editing: PuttStroke?
 
     var body: some View {
         let strokes = session.orderedStrokes
         List {
             Section {
-                TextField("Where, green speed, anything to remember", text: $session.note, axis: .vertical)
+                GreenSpeedRow(session: session)
+                TextField("Where, conditions, anything to remember", text: $session.note, axis: .vertical)
             } header: {
-                Text("Note")
+                Text("Session")
             }
             Section("Consistency") {
-                ConsistencyRows(report: strokes.report(geometry: settings.geometry, model: chart))
+                ConsistencyRows(report: strokes.report(geometry: settings.geometry, chart: chart))
             }
             Section("Strokes") {
                 ForEach(Array(strokes.enumerated()), id: \.element.id) { i, s in
