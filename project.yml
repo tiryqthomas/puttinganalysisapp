@@ -1,6 +1,6 @@
-# Generates PuttingApp.xcodeproj. On a Mac:
-#   brew install xcodegen
-#   xcodegen
+# Generates PuttingApp.xcodeproj. On a Mac (no Homebrew needed):
+#   curl -L -o /tmp/xcodegen.zip https://github.com/yonaskolb/XcodeGen/releases/latest/download/xcodegen.zip
+#   unzip -o /tmp/xcodegen.zip -d /tmp && /tmp/xcodegen/bin/xcodegen
 name: PuttingApp
 options:
   bundleIdPrefix: com.tiryqthomas.putting
@@ -111,3 +111,11 @@ schemes:
     test:
       targets:
         - package: PuttCore/PuttCoreTests
+  # Runs the watch app straight on the Apple Watch (pick the watch as the
+  # run destination). Use this to see watch logs and crashes in Xcode.
+  PuttWatch:
+    build:
+      targets:
+        PuttWatch: all
+    run:
+      config: Debug

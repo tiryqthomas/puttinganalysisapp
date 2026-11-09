@@ -60,20 +60,27 @@ measurements, the stroke chart fit and the consistency scores.
 **2. Generate the Xcode project.**
 
 ```sh
-brew install xcodegen
-xcodegen
+curl -L -o /tmp/xcodegen.zip https://github.com/yonaskolb/XcodeGen/releases/latest/download/xcodegen.zip
+unzip -o /tmp/xcodegen.zip -d /tmp
+/tmp/xcodegen/bin/xcodegen
 open PuttingApp.xcodeproj
 ```
 
-**3. Run on your devices.** Choose the **PuttPhone** scheme. For both the
-PuttPhone and PuttWatch targets, open **Signing & Capabilities** and pick
+Run `xcodegen` again whenever `project.yml` changes.
+
+**3. Run on your devices.** Choose the **PuttPhone** scheme. For each of the
+PuttPhone, PuttWatch and PuttWidget targets, open **Signing & Capabilities** and pick
 your Apple ID's Personal Team. If a bundle ID is taken, change
 `com.tiryqthomas.putting` (keep the watch app's ID as the phone's ID plus
 `.watchkitapp`, and the widget's as the phone's ID plus `.widget`). The
 phone and the widget share an App Group, `group.com.tiryqthomas.putting`;
 if you change the bundle ID, change the group to match in **Signing &
 Capabilities** and in `SharedWidget/PuttingCardData.swift`. Run on your
-iPhone; the watch app installs alongside it.
+iPhone; the watch app installs alongside it. To run straight on the watch
+(and see its logs and crashes in Xcode), choose the **PuttWatch** scheme
+and pick your Apple Watch as the destination. The watch needs watchOS 10
+or later with Developer Mode turned on (Settings → Privacy & Security →
+Developer Mode on the watch).
 
 No watch handy? On the iPhone's Practice tab, tap the waveform button to
 add a simulated stroke. It runs through the same analysis code as a real
