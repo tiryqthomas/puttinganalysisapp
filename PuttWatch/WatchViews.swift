@@ -202,6 +202,40 @@ struct RollPicker: View {
     }
 }
 
+/// A score with an info button that explains what it measures.
+struct WatchScoreRow: View {
+    let info: ScoreInfo
+    let score: Double
+    @State private var showingInfo = false
+
+    var body: some View {
+        Button {
+            showingInfo = true
+        } label: {
+            HStack(spacing: 4) {
+                Text(info.title)
+                Image(systemName: "info.circle")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Text("\(Int(score.rounded()))").monospacedDigit()
+            }
+        }
+        .buttonStyle(.plain)
+        .accessibilityHint("Shows what \(info.title) means")
+        .sheet(isPresented: $showingInfo) {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(info.title).font(.headline)
+                    Text(info.measures)
+                    Text(info.scoring).foregroundStyle(.secondary)
+                }
+                .font(.footnote)
+            }
+        }
+    }
+}
+
 /// Where the detector is, in words and a symbol, so it never relies on color.
 struct StatusLine: View {
     @Environment(PracticeModel.self) private var model
@@ -237,8 +271,9 @@ struct SessionPage: View {
                     LabeledContent("Avg tempo", value: Units.tempo(t))
                 }
                 if let tempo = r.tempo, let rhythm = r.rhythm {
-                    LabeledContent("Tempo score", value: "\(Int(tempo.rounded()))")
-                    LabeledContent("Rhythm score", value: "\(Int(rhythm.rounded()))")
+                    WatchScoreRow(info: .tempo, score: tempo)
+                    WatchScoreRow(info: .rhythm, score: rhythm)
+                    if let p = r.proportion { WatchScoreRow(info: .proportion, score: p) }
                 } else {
                     Text("Scores appear after \(Consistency.minimumStrokes) strokes.")
                         .font(.footnote)

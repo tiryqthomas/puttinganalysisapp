@@ -308,18 +308,19 @@ struct ConsistencyRows: View {
                 .font(.footnote)
                 .foregroundStyle(.secondary)
         } else {
-            ScoreRow(title: "Tempo", score: report.tempo, detail: report.meanTempoRatio.map { "avg " + Units.tempo($0) })
-            ScoreRow(title: "Rhythm", score: report.rhythm, detail: "same total time")
-            ScoreRow(title: "Proportion", score: report.proportion, detail: "through vs. back")
-            ScoreRow(title: "Distance control", score: report.distanceControl, detail: report.distanceControl == nil ? "needs 4 rolls" : "vs. your chart")
+            ScoreRow(info: .tempo, score: report.tempo, detail: report.meanTempoRatio.map { "avg " + Units.tempo($0) })
+            ScoreRow(info: .rhythm, score: report.rhythm, detail: "same total time")
+            ScoreRow(info: .proportion, score: report.proportion, detail: "through vs. back")
+            ScoreRow(info: .distance, score: report.distanceControl, detail: report.distanceControl == nil ? "needs 4 rolls" : "vs. your chart")
         }
     }
 }
 
 struct ScoreRow: View {
-    let title: String
+    let info: ScoreInfo
     let score: Double?
     let detail: String?
+    @State private var showingInfo = false
 
     var body: some View {
         LabeledContent {
@@ -327,9 +328,42 @@ struct ScoreRow: View {
                 .font(.body.weight(.semibold))
                 .monospacedDigit()
         } label: {
-            Text(title)
+            HStack(spacing: 6) {
+                Text(info.title)
+                Button {
+                    showingInfo = true
+                } label: {
+                    Image(systemName: "info.circle")
+                        .imageScale(.medium)
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.borderless)
+                .padding(.vertical, -12)
+                .accessibilityLabel("What \(info.title) means")
+                .popover(isPresented: $showingInfo) {
+                    ScoreInfoView(info: info)
+                        .presentationCompactAdaptation(.popover)
+                }
+            }
             if let detail { Text(detail) }
         }
+    }
+}
+
+struct ScoreInfoView: View {
+    let info: ScoreInfo
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(info.title).font(.headline)
+            Text(info.measures)
+            Text(info.scoring).foregroundStyle(.secondary)
+        }
+        .font(.subheadline)
+        .fixedSize(horizontal: false, vertical: true)
+        .frame(width: 280, alignment: .leading)
+        .padding()
     }
 }
 
