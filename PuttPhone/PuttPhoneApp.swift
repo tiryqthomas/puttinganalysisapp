@@ -32,17 +32,41 @@ struct PuttPhoneApp: App {
 }
 
 struct RootView: View {
+    enum Tab: Hashable { case practice, chart, progress, settings }
+
+    @Environment(StrokeInbox.self) private var inbox
+    @Environment(\.modelContext) private var context
+    @State private var tab: Tab = .practice
+
     var body: some View {
-        TabView {
+        TabView(selection: $tab) {
             PracticeView()
                 .tabItem { Label("Practice", systemImage: "figure.golf") }
+                .tag(Tab.practice)
             StrokeChartView()
                 .tabItem { Label("Chart", systemImage: "ruler") }
+                .tag(Tab.chart)
             ProgressScreen()
                 .tabItem { Label("Progress", systemImage: "chart.line.uptrend.xyaxis") }
+                .tag(Tab.progress)
             SettingsView()
                 .tabItem { Label("Settings", systemImage: "gearshape") }
+                .tag(Tab.settings)
         }
+        // When the player taps End on the watch, show how the session went.
+        .sheet(item: endedSession) { session in
+            RecapView(session: session) { tab = .chart }
+        }
+    }
+
+    private var endedSession: Binding<PracticeSession?> {
+        Binding(
+            get: {
+                guard let id = inbox.endedSessionID else { return nil }
+                return try? context.fetch(FetchDescriptor<PracticeSession>(predicate: #Predicate { $0.id == id })).first
+            },
+            set: { if $0 == nil { inbox.endedSessionID = nil } }
+        )
     }
 }
 

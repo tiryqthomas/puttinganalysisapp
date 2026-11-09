@@ -81,15 +81,47 @@ struct StrokeChartView: View {
                 if let chart {
                     CourseSpeedTable(chart: chart, speed: $courseSpeed)
                 }
+
+                // The card and landmarks always use every putt, whatever range is picked above.
+                if let full = strokes.speedChart(geometry: g) {
+                    let speed = courseSpeed ?? GreenSpeed(stimp: full.usualStimp)
+                    Section {
+                        PuttingCardView(chart: full, speed: speed)
+                            .listRowInsets(EdgeInsets())
+                            .listRowBackground(Color.clear)
+                    } header: {
+                        Text("Putting card")
+                    }
+                    Section {
+                        NavigationLink {
+                            LandmarksView(chart: full, map: strokes.landmarkMap(geometry: g), speed: speed)
+                        } label: {
+                            LabeledContent("Landmarks", value: landmarkSummary)
+                        }
+                    } footer: {
+                        Text("Where to take the putter back to against your foot, for each roll.")
+                    }
+                }
             }
             .navigationTitle("Stroke chart")
             .onAppear {
                 if courseSpeed == nil, let usual = chart?.usualStimp { courseSpeed = GreenSpeed(stimp: usual) }
             }
+            .onChange(of: courseSpeed) {
+                // The Lock Screen card follows the speed picked here.
+                if let speed = courseSpeed, let full = strokes.speedChart(geometry: g) {
+                    PuttingCardData.setCardSpeed(speed, chart: full, units: u)
+                }
+            }
         }
     }
 
     @State private var courseSpeed: GreenSpeed?
+
+    private var landmarkSummary: String {
+        let n = strokes.filter { $0.landmark != nil && $0.distance != nil }.count
+        return n == 0 ? "None yet" : "\(n) noted"
+    }
 
     @ViewBuilder
     private func plot(points: [Point], chart: SpeedChart?) -> some View {

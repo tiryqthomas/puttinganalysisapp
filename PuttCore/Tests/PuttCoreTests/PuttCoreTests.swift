@@ -192,3 +192,69 @@ final class GreenSpeedTests: XCTestCase {
         XCTAssertTrue(chart.measured.isEmpty)
     }
 }
+
+final class LandmarkTests: XCTestCase {
+    /// Rolls on a Stimp 10 green that follow distance ∝ Stimp × backswing².
+    private func chart() throws -> SpeedChart {
+        let points = (0..<8).map { i -> SpeedPoint in
+            let back = 0.06 + 0.03 * Double(i)
+            return SpeedPoint(backswing: back, distance: 6 * 10 * back * back, stimp: 10)
+        }
+        return try XCTUnwrap(SpeedChart(points: points))
+    }
+
+    private let notes = [
+        LandmarkPoint(backswing: 0.10, landmark: .inside, stimp: 10),
+        LandmarkPoint(backswing: 0.11, landmark: .inside, stimp: 10),
+        LandmarkPoint(backswing: 0.18, landmark: .middle, stimp: 10),
+        LandmarkPoint(backswing: 0.19, landmark: .middle, stimp: 10),
+        LandmarkPoint(backswing: 0.27, landmark: .outside, stimp: 10),
+    ]
+
+    func testNeedsANote() {
+        XCTAssertNil(LandmarkMap(points: []))
+    }
+
+    func testPicksTheClosestLandmarkUsed() throws {
+        let map = try XCTUnwrap(LandmarkMap(points: notes))
+        XCTAssertEqual(map.landmark(forBackswing: 0.105), .inside)
+        XCTAssertEqual(map.landmark(forBackswing: 0.20), .middle)
+        XCTAssertEqual(map.landmark(forBackswing: 0.30), .outside)
+        // Inside-middle was never used, so it's never suggested.
+        XCTAssertEqual(map.landmark(forBackswing: 0.14), .inside)
+        XCTAssertEqual(map.counts[.medium], 5)
+    }
+
+    func testSameDistanceMovesInsideOnFasterGreens() throws {
+        let chart = try chart(), map = try XCTUnwrap(LandmarkMap(points: notes))
+        // A putt that needs a 0.16 m backswing on a 10 reaches the middle of the foot.
+        let d = chart.distance(forBackswing: 0.16, stimp: 10)
+        XCTAssertEqual(map.landmark(forDistance: d, stimp: 10, chart: chart), .middle)
+        // On a 13.5 the same putt needs about 0.14 m, closer to the inside landmark.
+        XCTAssertEqual(map.landmark(forDistance: d, stimp: 13.5, chart: chart), .inside)
+        // On a 6 it needs about 0.21 m: still the middle, but farther back.
+        XCTAssertEqual(map.landmark(forDistance: d, stimp: 6, chart: chart), .middle)
+        XCTAssertGreaterThan(chart.backswing(forDistance: d, stimp: 6), 0.2)
+    }
+}
+
+final class UsualRangeTests: XCTestCase {
+    func testNeedsThreeSessions() {
+        XCTAssertNil(Consistency.usualRange(of: [80, 82]))
+    }
+
+    func testIsAtLeastSixPointsWide() throws {
+        let r = try XCTUnwrap(Consistency.usualRange(of: [80, 80, 80]))
+        XCTAssertEqual(r.lowerBound, 77, accuracy: 1e-9)
+        XCTAssertEqual(r.upperBound, 83, accuracy: 1e-9)
+        XCTAssertEqual(Consistency.placement(of: 85, in: r), .above)
+        XCTAssertEqual(Consistency.placement(of: 79, in: r), .within)
+        XCTAssertEqual(Consistency.placement(of: 70, in: r), .below)
+    }
+
+    func testFollowsTheSpread() throws {
+        let r = try XCTUnwrap(Consistency.usualRange(of: [60, 70, 80, 90, 100]))
+        XCTAssertEqual(r.lowerBound, 80 - 200.0.squareRoot(), accuracy: 1e-9)
+        XCTAssertEqual(r.upperBound, 100, accuracy: 1e-9)
+    }
+}

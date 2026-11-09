@@ -188,6 +188,8 @@ struct RollPicker: View {
     let stroke: StrokeMetrics
     /// In paces.
     @State private var value: Double = 3
+    @State private var landmark: Landmark?
+    @State private var pickingLandmark = false
     @State private var loaded = false
 
     private let step = Units.paceStep
@@ -195,7 +197,7 @@ struct RollPicker: View {
 
     var body: some View {
         let u = model.units
-        VStack(spacing: 6) {
+        VStack(spacing: 4) {
             Text("How far did it roll?")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
@@ -205,7 +207,7 @@ struct RollPicker: View {
                     .clipShape(Circle())
                     .accessibilityLabel("Shorter")
                 Text(Units.paceNumber(value))
-                    .font(.system(size: 44, weight: .semibold, design: .rounded).monospacedDigit())
+                    .font(.system(size: 40, weight: .semibold, design: .rounded).monospacedDigit())
                     .frame(minWidth: 70)
                     .contentTransition(.numericText())
                 Button { nudge(step) } label: { Image(systemName: "plus") }
@@ -216,13 +218,30 @@ struct RollPicker: View {
             Text(value == 1 ? "pace" : "paces")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
+            // Optional: where the putter stopped against the foot.
+            Button {
+                pickingLandmark = true
+            } label: {
+                HStack {
+                    Text("Landmark").foregroundStyle(.secondary)
+                    Spacer()
+                    Text(landmark?.title ?? "Add")
+                        .foregroundStyle(landmark == nil ? Color.accentColor : .primary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                    Image(systemName: "chevron.right").font(.footnote).foregroundStyle(.secondary)
+                }
+                .font(.footnote)
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.small)
             HStack {
                 Button("Practice") {
                     model.setRoll(nil, for: stroke.id)
                     dismiss()
                 }
                 Button("Save") {
-                    model.setRoll(u.metres(fromDistanceValue: value), for: stroke.id)
+                    model.setRoll(u.metres(fromDistanceValue: value), landmark: landmark, for: stroke.id)
                     if model.settings.watchHaptics { WKInterfaceDevice.current().play(.success) }
                     dismiss()
                 }
@@ -237,6 +256,10 @@ struct RollPicker: View {
             loaded = true
             let metres = model.rolls[stroke.id] ?? model.suggestedRoll(for: stroke)
             value = snap(u.distanceValue(metres))
+            landmark = model.landmarks[stroke.id]
+        }
+        .sheet(isPresented: $pickingLandmark) {
+            LandmarkPicker(selection: $landmark)
         }
     }
 
@@ -244,6 +267,40 @@ struct RollPicker: View {
 
     private func snap(_ v: Double) -> Double {
         min(max((v / step).rounded() * step, range.lowerBound), range.upperBound)
+    }
+}
+
+/// One tap per landmark. "None" clears it, since it's always optional.
+struct LandmarkPicker: View {
+    @Environment(\.dismiss) private var dismiss
+    @Binding var selection: Landmark?
+
+    var body: some View {
+        List {
+            Section {
+                ForEach(Landmark.allCases) { l in
+                    Button {
+                        selection = l
+                        dismiss()
+                    } label: {
+                        HStack {
+                            Text(l.title)
+                            Spacer()
+                            if selection == l {
+                                Image(systemName: "checkmark").foregroundStyle(Color.accentColor)
+                            }
+                        }
+                    }
+                }
+                Button("None") {
+                    selection = nil
+                    dismiss()
+                }
+            } footer: {
+                Text(Landmark.explanation)
+            }
+        }
+        .navigationTitle("Landmark")
     }
 }
 
