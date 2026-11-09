@@ -1,0 +1,81 @@
+# Generates PuttingApp.xcodeproj. On a Mac:
+#   brew install xcodegen
+#   xcodegen
+name: PuttingApp
+options:
+  bundleIdPrefix: com.tiryqthomas.putting
+  deploymentTarget:
+    iOS: "17.0"
+    watchOS: "10.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    DEVELOPMENT_TEAM: ""   # pick your Personal Team in Xcode, or put its ID here
+
+packages:
+  PuttCore:
+    path: PuttCore
+
+targets:
+  PuttPhone:
+    type: application
+    platform: iOS
+    sources:
+      - PuttPhone
+      - Shared
+    dependencies:
+      - package: PuttCore
+      - target: PuttWatch
+    info:
+      path: PuttPhone/Info.plist
+      properties:
+        CFBundleDisplayName: Putting
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.tiryqthomas.putting
+        TARGETED_DEVICE_FAMILY: "1"
+        ASSETCATALOG_COMPILER_APPICON_NAME: ""
+
+  PuttWatch:
+    type: application
+    platform: watchOS
+    sources:
+      - PuttWatch
+      - Shared
+    dependencies:
+      - package: PuttCore
+      - sdk: HealthKit.framework
+    info:
+      path: PuttWatch/Info.plist
+      properties:
+        CFBundleDisplayName: Putting
+        WKApplication: true
+        WKCompanionAppBundleIdentifier: com.tiryqthomas.putting
+        WKBackgroundModes: [workout-processing]
+        NSHealthShareUsageDescription: Putting starts a golf workout so it can keep measuring strokes while your wrist is down. It doesn't read your health data.
+        NSHealthUpdateUsageDescription: Putting starts a golf workout so it can keep measuring strokes while your wrist is down. Nothing is saved to Health.
+        NSMotionUsageDescription: Putting uses the watch's motion sensors to measure your putting stroke.
+    entitlements:
+      path: PuttWatch/PuttWatch.entitlements
+      properties:
+        com.apple.developer.healthkit: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.tiryqthomas.putting.watchkitapp
+        TARGETED_DEVICE_FAMILY: "4"
+        ASSETCATALOG_COMPILER_APPICON_NAME: ""
+
+schemes:
+  PuttPhone:
+    build:
+      targets:
+        PuttPhone: all
+        PuttWatch: all
+    test:
+      targets:
+        - package: PuttCore/PuttCoreTests
