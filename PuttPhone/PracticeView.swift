@@ -16,7 +16,7 @@ struct PracticeView: View {
     @State private var simulatedRolls: [UUID: Double] = [:]
 
     private var session: PracticeSession? { sessions.first }
-    private var chart: DistanceModel? { allStrokes.distanceModel(geometry: settings.geometry) }
+    private var chart: SpeedChart? { allStrokes.speedChart(geometry: settings.geometry) }
 
     var body: some View {
         NavigationStack {
@@ -77,7 +77,8 @@ struct PracticeView: View {
         if let roll = simulatedRolls[stroke.id] { return roll }
         guard let chart else { return nil }
         let back = settings.geometry.length(forAngle: stroke.backswingAngle)
-        return chart.isSupported(backswing: back) ? chart.distance(forBackswing: back) : nil
+        let stimp = stroke.session?.stimp ?? chart.usualStimp
+        return chart.isSupported(backswing: back, stimp: stimp) ? chart.distance(forBackswing: back, stimp: stimp) : nil
     }
 
     private func simulate() {
@@ -243,13 +244,14 @@ struct SessionStrokes: View {
     @Environment(AppSettings.self) private var settings
     let session: PracticeSession
     /// The all-time stroke chart, which distance control is measured against.
-    let chart: DistanceModel?
+    let chart: SpeedChart?
     let onSelect: (PuttStroke) -> Void
 
     var body: some View {
         let strokes = session.orderedStrokes
-        let r = strokes.report(geometry: settings.geometry, model: chart)
+        let r = strokes.report(geometry: settings.geometry, chart: chart)
         Section {
+            GreenSpeedRow(session: session)
             ConsistencyRows(report: r)
             ForEach(Array(strokes.enumerated().reversed()), id: \.element.id) { index, s in
                 Button {
@@ -267,6 +269,75 @@ struct SessionStrokes: View {
         } header: {
             Text("This session · \(session.startedAt.formatted(date: .abbreviated, time: .shortened))")
         }
+    }
+}
+
+/// Picks the session's green speed: a range, or the exact Stimp reading.
+struct GreenSpeedRow: View {
+    @Environment(\.modelContext) private var context
+    @Environment(StrokeInbox.self) private var inbox
+    @Bindable var session: PracticeSession
+    @State private var enteringExact = false
+    @State private var exactText = ""
+
+    private var range: Binding<GreenSpeed?> {
+        Binding(
+            get: { session.greenSpeed },
+            set: { speed in
+                session.stimp = speed?.typicalStimp
+                session.stimpIsExact = false
+                changed()
+            }
+        )
+    }
+
+    var body: some View {
+        LabeledContent {
+            Menu {
+                Picker("Green speed", selection: range) {
+                    ForEach(GreenSpeed.allCases) { s in
+                        // A second Text shows as the menu item's subtitle.
+                        VStack {
+                            Text("\(s.title) (\(s.stimpRange))")
+                            Text(s.example)
+                        }
+                        .tag(Optional(s))
+                    }
+                    Text("Not set").tag(GreenSpeed?.none)
+                }
+                Button("Enter exact Stimp…", systemImage: "number") {
+                    exactText = session.stimpIsExact ? session.stimp.map { String(format: "%.1f", $0) } ?? "" : ""
+                    enteringExact = true
+                }
+            } label: {
+                HStack(spacing: 4) {
+                    Text(session.speedLabel ?? "Set")
+                    Image(systemName: "chevron.up.chevron.down").imageScale(.small)
+                }
+            }
+        } label: {
+            Text("Green speed")
+            if let speed = session.greenSpeed { Text(speed.example) }
+        }
+        .alert("Exact Stimp", isPresented: $enteringExact) {
+            TextField("10.5", text: $exactText)
+                .keyboardType(.decimalPad)
+            Button("Save") {
+                if let v = Double(exactText.replacingOccurrences(of: ",", with: ".")), (4...16).contains(v) {
+                    session.stimp = v
+                    session.stimpIsExact = true
+                    changed()
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("The Stimpmeter reading, often posted in the pro shop or on the first tee.")
+        }
+    }
+
+    private func changed() {
+        try? context.save()
+        inbox.refreshChart()
     }
 }
 

@@ -8,6 +8,10 @@ final class PracticeSession {
     var startedAt: Date
     /// Free text, e.g. "Club putting green, quick".
     var note: String = ""
+    /// Green speed. A picked range stores that range's typical Stimp;
+    /// `stimpIsExact` is true when the player typed the actual reading.
+    var stimp: Double?
+    var stimpIsExact: Bool = false
     @Relationship(deleteRule: .cascade, inverse: \PuttStroke.session)
     var strokes: [PuttStroke] = []
 
@@ -17,6 +21,16 @@ final class PracticeSession {
     }
 
     var orderedStrokes: [PuttStroke] { strokes.sorted { $0.recordedAt < $1.recordedAt } }
+
+    var greenSpeed: GreenSpeed? { stimp.map(GreenSpeed.init(stimp:)) }
+
+    /// "Fast (11–12)" or "Stimp 10.5", or nil when not set.
+    var speedLabel: String? {
+        guard let stimp else { return nil }
+        if stimpIsExact { return String(format: "Stimp %.1f", stimp) }
+        let s = GreenSpeed(stimp: stimp)
+        return "\(s.shortTitle) (\(s.stimpRange))"
+    }
 }
 
 @Model
@@ -64,17 +78,25 @@ final class PuttStroke {
         )
     }
 
-    func distancePoint(_ g: StrokeGeometry) -> DistancePoint? {
-        distance.map { DistancePoint(backswing: g.length(forAngle: backswingAngle), distance: $0) }
+    func speedPoint(_ g: StrokeGeometry) -> SpeedPoint? {
+        distance.map { SpeedPoint(backswing: g.length(forAngle: backswingAngle), distance: $0, stimp: session?.stimp) }
     }
 }
 
 extension Array where Element == PuttStroke {
-    func report(geometry g: StrokeGeometry, model: DistanceModel? = nil) -> ConsistencyReport {
-        Consistency.report(strokes: map(\.metrics), distances: compactMap { $0.distancePoint(g) }, model: model)
+    /// Consistency scores. Distance control compares each roll with the
+    /// speed-adjusted stroke chart, so putts on different greens are fair.
+    func report(geometry g: StrokeGeometry, chart: SpeedChart? = nil) -> ConsistencyReport {
+        let points = compactMap { $0.speedPoint(g) }
+        guard let chart else { return Consistency.report(strokes: map(\.metrics)) }
+        return Consistency.report(
+            strokes: map(\.metrics),
+            distances: SpeedChart.normalized(points, usualStimp: chart.usualStimp),
+            model: chart.combined
+        )
     }
 
-    func distanceModel(geometry g: StrokeGeometry) -> DistanceModel? {
-        DistanceModel(points: compactMap { $0.distancePoint(g) })
+    func speedChart(geometry g: StrokeGeometry) -> SpeedChart? {
+        SpeedChart(points: compactMap { $0.speedPoint(g) })
     }
 }

@@ -56,8 +56,13 @@ final class StrokeInbox: NSObject, WCSessionDelegate {
     }
 
     /// Adds a stroke to the session with `sessionID`, creating it if needed.
-    func add(_ m: StrokeMetrics, sessionID: UUID?, simulated: Bool) {
+    func add(_ m: StrokeMetrics, sessionID: UUID?, simulated: Bool, stimp: Double? = nil) {
         let session = sessionID.flatMap(find) ?? currentOrNewSession(id: sessionID)
+        // The watch's green speed fills in a session that doesn't have one yet;
+        // a speed already set on the phone wins.
+        if session.stimp == nil, let stimp {
+            session.stimp = stimp
+        }
         let stroke = PuttStroke(m, simulated: simulated)
         context.insert(stroke)
         stroke.session = session
@@ -101,7 +106,7 @@ final class StrokeInbox: NSObject, WCSessionDelegate {
     /// the watch if it changed.
     func refreshChart() {
         let all = (try? context.fetch(FetchDescriptor<PuttStroke>())) ?? []
-        let chart = all.distanceModel(geometry: settings.geometry)
+        let chart = all.speedChart(geometry: settings.geometry)
         if settings.value.chart != chart {
             settings.value.chart = chart
         }
@@ -127,8 +132,7 @@ final class StrokeInbox: NSObject, WCSessionDelegate {
             return
         }
         guard let decoded = StrokeTransfer.stroke(from: userInfo) else { return }
-        let (stroke, sessionID) = decoded
-        Task { @MainActor in self.add(stroke, sessionID: sessionID, simulated: false) }
+        Task { @MainActor in self.add(decoded.stroke, sessionID: decoded.sessionID, simulated: false, stimp: decoded.stimp) }
     }
 
     nonisolated func sessionDidBecomeInactive(_ session: WCSession) {}

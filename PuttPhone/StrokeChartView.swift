@@ -23,6 +23,8 @@ struct StrokeChartView: View {
         let back: Double   // display units
         let roll: Double   // display units
         let date: Date
+        let speed: GreenSpeed?
+        var seriesName: String { speed?.shortTitle ?? "Speed not set" }
     }
 
     private var filtered: [PuttStroke] {
@@ -39,10 +41,11 @@ struct StrokeChartView: View {
     var body: some View {
         let u = settings.units, g = settings.geometry
         let picked = filtered
-        let model = picked.distanceModel(geometry: g)
+        let chart = picked.speedChart(geometry: g)
         let points = picked.compactMap { s -> Point? in
             guard let d = s.distance else { return nil }
-            return Point(id: s.id, back: u.lengthValue(g.length(forAngle: s.backswingAngle)), roll: u.distanceValue(d), date: s.recordedAt)
+            return Point(id: s.id, back: u.lengthValue(g.length(forAngle: s.backswingAngle)), roll: u.distanceValue(d),
+                         date: s.recordedAt, speed: s.session?.greenSpeed)
         }
 
         NavigationStack {
@@ -61,53 +64,65 @@ struct StrokeChartView: View {
                         Text("Enter roll distances on the Practice tab and your chart builds here.")
                             .foregroundStyle(.secondary)
                     } else {
-                        chart(points: points, model: model)
-                            .frame(height: 260)
+                        plot(points: points, chart: chart)
+                            .frame(height: 280)
                             .padding(.vertical, 8)
                     }
                 } header: {
                     Text("Roll vs. backswing")
                 } footer: {
-                    if let model {
-                        Text("Fitted from \(model.pointCount) putts. Fit quality \(Int((model.rSquared * 100).rounded()))%.")
+                    if let chart {
+                        Text("Fitted from \(chart.combined.pointCount) putts. A solid curve comes from putts at that speed; a dashed one is estimated from your other greens.")
                     } else if !points.isEmpty {
                         Text("Needs \(DistanceModel.minimumPoints) putts of different lengths to fit a curve.")
                     }
                 }
 
-                if let model {
-                    LookupTable(model: model)
+                if let chart {
+                    CourseSpeedTable(chart: chart, speed: $courseSpeed)
                 }
             }
             .navigationTitle("Stroke chart")
+            .onAppear {
+                if courseSpeed == nil, let usual = chart?.usualStimp { courseSpeed = GreenSpeed(stimp: usual) }
+            }
         }
     }
 
+    @State private var courseSpeed: GreenSpeed?
+
     @ViewBuilder
-    private func chart(points: [Point], model: DistanceModel?) -> some View {
+    private func plot(points: [Point], chart: SpeedChart?) -> some View {
         let u = settings.units
         let maxBack = (points.map(\.back).max() ?? 1) * 1.1
         let nearest = selectedBack.flatMap { x in points.min { abs($0.back - x) < abs($1.back - x) } }
+        // Speeds with putts, plus the course speed picked below so its
+        // estimated curve shows next to the ones you've measured.
+        let speeds = GreenSpeed.allCases.filter { s in s == courseSpeed || points.contains { $0.speed == s } }
 
         Chart {
-            if let model {
-                let steps = 40
-                ForEach(0...steps, id: \.self) { i in
-                    let back = maxBack * Double(i) / Double(steps)
-                    let metres = back / u.lengthValue(1)  // display units back to metres
-                    LineMark(
-                        x: .value("Backswing", back),
-                        y: .value("Roll", u.distanceValue(model.distance(forBackswing: metres)))
-                    )
-                    .foregroundStyle(Color.secondary)
-                    .lineStyle(StrokeStyle(lineWidth: 2))
-                    .interpolationMethod(.catmullRom)
+            if let chart {
+                ForEach(speeds) { speed in
+                    let measured = chart.isMeasured(speed)
+                    ForEach(0...40, id: \.self) { i in
+                        let back = maxBack * Double(i) / 40
+                        let metres = back / u.lengthValue(1)
+                        LineMark(
+                            x: .value("Backswing", back),
+                            y: .value("Roll", u.distanceValue(chart.distance(forBackswing: metres, stimp: speed.typicalStimp))),
+                            series: .value("Curve", speed.shortTitle)
+                        )
+                        .foregroundStyle(by: .value("Green speed", speed.shortTitle))
+                        .lineStyle(StrokeStyle(lineWidth: 2, dash: measured ? [] : [5, 4]))
+                        .interpolationMethod(.catmullRom)
+                    }
                 }
             }
             ForEach(points) { p in
                 PointMark(x: .value("Backswing", p.back), y: .value("Roll", p.roll))
-                    .foregroundStyle(Palette.tint)
-                    .symbolSize(nearest?.id == p.id ? 120 : 60)
+                    .foregroundStyle(by: .value("Green speed", p.seriesName))
+                    .symbol(by: .value("Green speed", p.seriesName))
+                    .symbolSize(nearest?.id == p.id ? 120 : 55)
             }
             if let n = nearest {
                 RuleMark(x: .value("Backswing", n.back))
@@ -116,7 +131,7 @@ struct StrokeChartView: View {
                         VStack(alignment: .leading, spacing: 2) {
                             Text("\(String(format: "%.1f", n.back)) \(u.lengthUnit) → \(String(format: "%.1f", n.roll)) \(u.distanceUnit)")
                                 .font(.caption.weight(.semibold))
-                            Text(n.date.formatted(date: .abbreviated, time: .omitted))
+                            Text("\(n.seriesName) · \(n.date.formatted(date: .abbreviated, time: .omitted))")
                                 .font(.caption2)
                                 .foregroundStyle(.secondary)
                         }
@@ -126,6 +141,9 @@ struct StrokeChartView: View {
                     }
             }
         }
+        .chartForegroundStyleScale(domain: Palette.speedSeries.map(\.name), range: Palette.speedSeries.map(\.color))
+        .chartSymbolScale(domain: Palette.speedSeries.map(\.name), range: Palette.speedSeries.map(\.symbol))
+        .chartLegend(position: .bottom, alignment: .leading)
         .chartXScale(domain: 0...maxBack)
         .chartXAxisLabel("Backswing (\(u.lengthUnit))")
         .chartYAxisLabel("Roll (\(u.distanceUnit))")
@@ -141,39 +159,74 @@ struct StrokeChartView: View {
     }
 }
 
-/// "For a 20-footer, take it back 7.4 in": the chart read the other way.
-struct LookupTable: View {
+/// "For a 20-footer on fast greens, take it back 6.8 in": the chart read
+/// the other way, at the speed of the course you're about to play.
+struct CourseSpeedTable: View {
     @Environment(AppSettings.self) private var settings
-    let model: DistanceModel
+    let chart: SpeedChart
+    @Binding var speed: GreenSpeed?
 
     var body: some View {
         let u = settings.units
+        let selected = speed ?? GreenSpeed(stimp: chart.usualStimp)
+        let usual = GreenSpeed(stimp: chart.usualStimp)
         let targets: [Double] = u.metric ? [1, 2, 3, 5, 7, 10, 12] : [3, 6, 10, 15, 20, 30, 40]
         Section {
+            Picker("Course speed", selection: Binding(get: { selected }, set: { speed = $0 })) {
+                // Five words don't fit a segmented control, so segments show the
+                // Stimp range and the header names the speed.
+                ForEach(GreenSpeed.allCases) { s in
+                    Text(s == .verySlow ? "<7" : s.stimpRange)
+                        .accessibilityLabel(s.title)
+                        .tag(s)
+                }
+            }
+            .pickerStyle(.segmented)
+            .listRowBackground(Color.clear)
+            .listRowInsets(EdgeInsets())
+
             ForEach(targets, id: \.self) { t in
                 let metres = u.metres(fromDistanceValue: t)
-                let back = model.backswing(forDistance: metres)
-                let supported = model.isSupported(backswing: back)
+                let back = chart.backswing(forDistance: metres, stimp: selected.typicalStimp)
+                let usualBack = chart.backswing(forDistance: metres, stimp: chart.usualStimp)
+                let supported = chart.isSupported(backswing: back, stimp: selected.typicalStimp)
                 LabeledContent {
-                    HStack(spacing: 6) {
-                        Text(u.length(back))
-                            .foregroundStyle(supported ? .primary : .secondary)
-                        if !supported {
-                            Image(systemName: "questionmark.circle")
+                    VStack(alignment: .trailing, spacing: 1) {
+                        HStack(spacing: 4) {
+                            Text(u.length(back))
+                                .foregroundStyle(supported ? .primary : .secondary)
+                            if !supported {
+                                Image(systemName: "questionmark.circle")
+                                    .foregroundStyle(.secondary)
+                                    .accessibilityLabel("Outside the putts you've logged")
+                            }
+                        }
+                        if selected != usual {
+                            Text(change(back - usualBack, units: u))
+                                .font(.caption)
                                 .foregroundStyle(.secondary)
-                                .accessibilityLabel("Outside the putts you've logged")
                         }
                     }
                     .monospacedDigit()
                 } label: {
-                    Text(u.distance(metres))
-                        .monospacedDigit()
+                    Text(u.distance(metres)).monospacedDigit()
                 }
             }
         } header: {
-            Text("Backswing for each distance")
+            Text("Backswing at \(selected.title.lowercased()) (\(selected.stimpRange))")
         } footer: {
-            Text("Marked lengths are outside the putts you've logged, so treat them as a guess. Log a few at those distances to firm them up.")
+            VStack(alignment: .leading, spacing: 4) {
+                Text(chart.isMeasured(selected)
+                     ? "Based on your \(chart.counts[selected] ?? 0) putts on greens this fast."
+                     : "Estimated from your other greens: a roll goes about as much farther as the Stimp is higher. Log \(SpeedChart.minimumOwnPoints) putts at this speed to firm it up.")
+                Text("Changes are compared with your usual greens, \(usual.title.lowercased()) (\(usual.stimpRange)). A ? means that length is outside the putts behind the curve.")
+            }
         }
+    }
+
+    private func change(_ metres: Double, units u: Units) -> String {
+        let v = abs(u.lengthValue(metres))
+        if v < 0.05 { return "same as usual" }
+        return String(format: "%.1f %@ %@ than usual", v, u.lengthUnit, metres < 0 ? "shorter" : "longer")
     }
 }

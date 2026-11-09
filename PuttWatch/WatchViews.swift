@@ -8,35 +8,80 @@ struct StartView: View {
     @Environment(PracticeModel.self) private var model
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("Putting")
-                .font(.title3.weight(.semibold))
-            if model.sensorsAvailable {
-                Text("Wear the watch on your lead wrist. Hold still at address before each putt.")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            } else {
-                Label("Motion sensors aren't available on this device.", systemImage: "exclamationmark.triangle")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Putting")
+                    .font(.title3.weight(.semibold))
+                if model.sensorsAvailable {
+                    Text("Wear the watch on your lead wrist. Hold still at address before each putt.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                } else {
+                    Label("Motion sensors aren't available on this device.", systemImage: "exclamationmark.triangle")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer(minLength: 0)
+                GreenSpeedPicker()
+                Button {
+                    model.start()
+                } label: {
+                    Label("Start", systemImage: "play.fill")
+                        .frame(maxWidth: .infinity)
+                }
+                .tint(.accentColor)
+                .disabled(!model.sensorsAvailable)
+                if !model.strokes.isEmpty {
+                    Text("Last session: \(model.strokes.count) strokes")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
             }
-            Spacer(minLength: 0)
-            Button {
-                model.start()
-            } label: {
-                Label("Start", systemImage: "play.fill")
-                    .frame(maxWidth: .infinity)
-            }
-            .tint(.accentColor)
-            .disabled(!model.sensorsAvailable)
-            if !model.strokes.isEmpty {
-                Text("Last session: \(model.strokes.count) strokes")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-            }
+            .padding(.horizontal, 4)
         }
-        .padding(.horizontal, 4)
+    }
+}
+
+/// Picks the green speed before a session. Opens a list, one tap per range.
+struct GreenSpeedPicker: View {
+    @Environment(PracticeModel.self) private var model
+
+    var body: some View {
+        NavigationLink {
+            List {
+                ForEach(GreenSpeed.allCases) { s in
+                    Button {
+                        model.greenSpeed = s
+                    } label: {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text(s.shortTitle)
+                                Text("Stimp \(s.stimpRange) · \(s.example)")
+                                    .font(.footnote)
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            if model.greenSpeed == s {
+                                Image(systemName: "checkmark").foregroundStyle(Color.accentColor)
+                            }
+                        }
+                    }
+                }
+                Button("Not sure") { model.greenSpeed = nil }
+            }
+            .navigationTitle("Green speed")
+        } label: {
+            HStack {
+                Text("Green").foregroundStyle(.secondary)
+                Spacer()
+                Text(model.greenSpeed.map { "\($0.shortTitle) \($0.stimpRange)" } ?? "Set speed")
+                    .foregroundStyle(model.greenSpeed == nil ? Color.accentColor : .primary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+            }
+            .font(.footnote)
+        }
     }
 }
 

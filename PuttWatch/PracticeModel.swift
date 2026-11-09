@@ -31,20 +31,32 @@ final class PracticeModel: NSObject, WCSessionDelegate {
     var isRunning: Bool { status != .idle }
     var latest: StrokeMetrics? { strokes.last }
     var units: Units { Units(metric: settings.usesMetric) }
+    /// Green speed for this session, picked before Start. Remembered for
+    /// next time, since players often practice on the same green.
+    var greenSpeed: GreenSpeed? {
+        didSet { UserDefaults.standard.set(greenSpeed?.rawValue, forKey: "greenSpeed") }
+    }
+
     var report: ConsistencyReport {
         let g = settings.geometry
-        let distances = strokes.compactMap { m in
-            rolls[m.id].map { DistancePoint(backswing: g.length(forAngle: m.backswingAngle), distance: $0) }
+        let points = strokes.compactMap { m in
+            rolls[m.id].map { SpeedPoint(backswing: g.length(forAngle: m.backswingAngle), distance: $0, stimp: greenSpeed?.typicalStimp) }
         }
-        return Consistency.report(strokes: strokes, distances: distances, model: settings.chart)
+        guard let chart = settings.chart else { return Consistency.report(strokes: strokes) }
+        return Consistency.report(strokes: strokes,
+                                  distances: SpeedChart.normalized(points, usualStimp: chart.usualStimp),
+                                  model: chart.combined)
     }
 
     /// Starting value for the roll picker: what the stroke chart predicts for
     /// this backswing, else the last roll entered, else 10 ft (3 m).
     func suggestedRoll(for m: StrokeMetrics) -> Double {
         let back = settings.geometry.length(forAngle: m.backswingAngle)
-        if let chart = settings.chart, chart.isSupported(backswing: back) {
-            return chart.distance(forBackswing: back)
+        if let chart = settings.chart {
+            let stimp = greenSpeed?.typicalStimp ?? chart.usualStimp
+            if chart.isSupported(backswing: back, stimp: stimp) {
+                return chart.distance(forBackswing: back, stimp: stimp)
+            }
         }
         if let last = strokes.last(where: { rolls[$0.id] != nil }).flatMap({ rolls[$0.id] }) {
             return last
@@ -63,6 +75,7 @@ final class PracticeModel: NSObject, WCSessionDelegate {
 
     override init() {
         super.init()
+        greenSpeed = UserDefaults.standard.string(forKey: "greenSpeed").flatMap(GreenSpeed.init(rawValue:))
         sensorsAvailable = motion.isAvailable
         motion.onPhaseChange = { [weak self] phase in
             guard let self, self.isRunning else { return }
@@ -108,7 +121,7 @@ final class PracticeModel: NSObject, WCSessionDelegate {
             lastRejected = nil
             if settings.watchHaptics { WKInterfaceDevice.current().play(.success) }
             if WCSession.default.activationState == .activated {
-                WCSession.default.transferUserInfo(StrokeTransfer.payload(for: m, sessionID: sessionID))
+                WCSession.default.transferUserInfo(StrokeTransfer.payload(for: m, sessionID: sessionID, stimp: greenSpeed?.typicalStimp))
             }
         case .rejected:
             lastRejected = Date()

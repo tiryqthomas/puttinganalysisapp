@@ -13,6 +13,12 @@ that ties each stroke to how far the ball rolled.
   other), or leave it blank for a practice swing. The app builds your
   **stroke chart** (roll distance vs. backswing, plus a "backswing for each
   distance" table) and scores your **consistency** per session.
+- **Green speed:** set how fast the greens are for each session, on the
+  watch before you start or on the phone, as a range (very slow under 7,
+  slow 7–8, medium 9–10, fast 11–12, very fast 13+) or an exact
+  Stimp. The stroke chart then shows a curve per speed, and the backswing
+  table can be switched to any speed so you can see how to adjust your
+  stroke at a faster or slower course.
 
 This first milestone is putt analysis only. The green-slope level and
 break/speed estimates come later.
@@ -68,6 +74,17 @@ Consistency scores (0–100) measure what should stay the same at every
 length: tempo, total stroke time (rhythm), follow-through ÷ backswing
 (proportion), and how closely each roll matched your stroke chart
 (distance control).
+
+## How green speed is handled
+
+A Stimpmeter measures how far a ball rolls from a fixed starting speed, so
+the same stroke rolls about in proportion to the Stimp: a putt that rolls
+16 ft on an 8 rolls about 22 ft on an 11. The app scales every roll to a
+Stimp 10 green and fits one curve to all of them, so every putt helps
+estimate every speed (shown dashed). Once a speed range has 5 putts of its
+own, it gets its own curve from just those putts (shown solid). Distance
+control compares rolls after the same scaling, so changing greens doesn't
+hurt your score. Rolls with no speed set are treated as your usual speed.
 
 ## Checking the detector without Xcode
 
