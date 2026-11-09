@@ -163,6 +163,7 @@ struct StrokeShape: View {
 struct DistanceEntry: View {
     @Environment(\.modelContext) private var context
     @Environment(AppSettings.self) private var settings
+    @Environment(StrokeInbox.self) private var inbox
     @Bindable var stroke: PuttStroke
     let suggestion: Double?
     let suggestionLabel: String
@@ -204,7 +205,7 @@ struct DistanceEntry: View {
             .font(.subheadline)
 
             if stroke.distance == nil {
-                Text("Leave it blank for a practice swing. It still counts toward tempo, but not your chart.")
+                Text("Enter it here or on your watch. Leave it blank for a practice swing; it still counts toward tempo, but not your chart.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
@@ -212,6 +213,7 @@ struct DistanceEntry: View {
         .padding(.vertical, 4)
         .onAppear(perform: load)
         .onChange(of: stroke.id) { load() }
+        .onChange(of: stroke.distance) { if !focused { load() } }
     }
 
     private var parsed: Double? {
@@ -227,6 +229,7 @@ struct DistanceEntry: View {
         guard let v = parsed else { return }
         stroke.distance = settings.units.metres(fromDistanceValue: v)
         try? context.save()
+        inbox.rollChanged(stroke)
         focused = false
     }
 

@@ -4,11 +4,15 @@ import PuttCore
 /// The messages the watch and phone exchange over WatchConnectivity.
 ///
 /// Strokes go watch → phone with `transferUserInfo`, which queues and
-/// delivers even if the phone app isn't running. Settings go phone → watch
-/// with `updateApplicationContext`, where only the latest value matters.
+/// delivers in order even if the other app isn't running. Roll distances go
+/// both ways the same way, so a roll entered on either device shows on the
+/// other. Settings and the stroke chart go phone → watch with
+/// `updateApplicationContext`, where only the latest value matters.
 enum StrokeTransfer {
     static let strokeKey = "stroke"
     static let sessionKey = "sessionID"
+    static let rollStrokeKey = "rollStrokeID"
+    static let rollKey = "roll"
 
     static func payload(for stroke: StrokeMetrics, sessionID: UUID) -> [String: Any] {
         let data = (try? JSONEncoder().encode(stroke)) ?? Data()
@@ -21,6 +25,18 @@ enum StrokeTransfer {
         let session = (userInfo[sessionKey] as? String).flatMap(UUID.init(uuidString:))
         return (stroke, session)
     }
+
+    /// A roll distance for a stroke, in metres. `nil` clears it, which marks
+    /// the stroke as a practice swing.
+    static func payload(roll metres: Double?, strokeID: UUID) -> [String: Any] {
+        [rollStrokeKey: strokeID.uuidString, rollKey: metres ?? -1]
+    }
+
+    static func roll(from userInfo: [String: Any]) -> (strokeID: UUID, metres: Double?)? {
+        guard let id = (userInfo[rollStrokeKey] as? String).flatMap(UUID.init(uuidString:)),
+              let value = userInfo[rollKey] as? Double else { return nil }
+        return (id, value > 0 ? value : nil)
+    }
 }
 
 /// Settings the phone owns and shares with the watch.
@@ -28,6 +44,8 @@ struct SharedSettings: Codable, Equatable {
     var pivotToHead: Double = 1.1
     var usesMetric: Bool = Locale.current.measurementSystem == .metric
     var watchHaptics: Bool = true
+    /// The player's stroke chart, so the watch can suggest a roll distance.
+    var chart: DistanceModel?
 
     static let contextKey = "settings"
 

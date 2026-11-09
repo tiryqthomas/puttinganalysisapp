@@ -1,5 +1,6 @@
 import PuttCore
 import SwiftUI
+import WatchKit
 
 // MARK: - Start
 
@@ -86,6 +87,8 @@ struct LiveStrokeView: View {
                 }
                 .font(.body)
                 .opacity(dimmed ? 0.6 : 1)
+
+                RollButton(stroke: m)
             } else {
                 Spacer(minLength: 0)
                 Text("Make a stroke")
@@ -100,6 +103,102 @@ struct LiveStrokeView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .navigationTitle("Stroke \(max(model.strokes.count, 1))")
         .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+/// Shows the stroke's roll distance, or asks for it. Opens the roll picker.
+struct RollButton: View {
+    @Environment(PracticeModel.self) private var model
+    let stroke: StrokeMetrics
+    @State private var picking = false
+
+    var body: some View {
+        let roll = model.rolls[stroke.id]
+        Button {
+            picking = true
+        } label: {
+            HStack {
+                Text("Roll").foregroundStyle(.secondary)
+                Spacer()
+                Text(roll.map { model.units.distance($0) } ?? "Add")
+                    .monospacedDigit()
+                    .foregroundStyle(roll == nil ? Color.accentColor : .primary)
+                Image(systemName: "chevron.right")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .buttonStyle(.bordered)
+        .sheet(isPresented: $picking) {
+            RollPicker(stroke: stroke)
+        }
+    }
+}
+
+/// Sets how far the ball rolled with the Digital Crown, with − and +
+/// buttons as a touch backup. Saving sends it to the phone.
+struct RollPicker: View {
+    @Environment(PracticeModel.self) private var model
+    @Environment(\.dismiss) private var dismiss
+    let stroke: StrokeMetrics
+    /// In display units (feet or metres).
+    @State private var value: Double = 10
+    @State private var loaded = false
+
+    private var step: Double { model.settings.usesMetric ? 0.5 : 1 }
+    private var range: ClosedRange<Double> { model.settings.usesMetric ? 0.5...30 : 1...99 }
+
+    var body: some View {
+        let u = model.units
+        VStack(spacing: 6) {
+            Text("How far did it roll?")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+            HStack(spacing: 10) {
+                Button { nudge(-step) } label: { Image(systemName: "minus") }
+                    .buttonStyle(.bordered)
+                    .clipShape(Circle())
+                    .accessibilityLabel("Shorter")
+                Text(u.metric ? String(format: "%.1f", value) : String(format: "%.0f", value))
+                    .font(.system(size: 44, weight: .semibold, design: .rounded).monospacedDigit())
+                    .frame(minWidth: 70)
+                    .contentTransition(.numericText())
+                Button { nudge(step) } label: { Image(systemName: "plus") }
+                    .buttonStyle(.bordered)
+                    .clipShape(Circle())
+                    .accessibilityLabel("Longer")
+            }
+            Text(u.distanceUnit)
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+            HStack {
+                Button("Practice") {
+                    model.setRoll(nil, for: stroke.id)
+                    dismiss()
+                }
+                Button("Save") {
+                    model.setRoll(u.metres(fromDistanceValue: value), for: stroke.id)
+                    if model.settings.watchHaptics { WKInterfaceDevice.current().play(.success) }
+                    dismiss()
+                }
+                .tint(.accentColor)
+            }
+        }
+        .focusable()
+        .digitalCrownRotation($value, from: range.lowerBound, through: range.upperBound, by: step,
+                              sensitivity: .low, isContinuous: false, isHapticFeedbackEnabled: true)
+        .onAppear {
+            guard !loaded else { return }
+            loaded = true
+            let metres = model.rolls[stroke.id] ?? model.suggestedRoll(for: stroke)
+            value = snap(u.distanceValue(metres))
+        }
+    }
+
+    private func nudge(_ delta: Double) { value = snap(value + delta) }
+
+    private func snap(_ v: Double) -> Double {
+        min(max((v / step).rounded() * step, range.lowerBound), range.upperBound)
     }
 }
 

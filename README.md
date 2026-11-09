@@ -6,8 +6,11 @@ that ties each stroke to how far the ball rolled.
 - **Watch:** wear it on your lead wrist and putt. For each stroke it shows
   tempo (backswing time ÷ downswing time), backswing length and
   follow-through length, and taps your wrist when a stroke is recorded.
+  Tap **Roll** to enter how far the ball rolled with the Digital Crown; it
+  starts at what your stroke chart predicts for that backswing.
 - **iPhone:** each stroke arrives from the watch. Enter how far the ball
-  rolled (or leave it blank for a practice swing). The app builds your
+  rolled here or on the watch (a roll entered on either one shows on the
+  other), or leave it blank for a practice swing. The app builds your
   **stroke chart** (roll distance vs. backswing, plus a "backswing for each
   distance" table) and scores your **consistency** per session.
 
