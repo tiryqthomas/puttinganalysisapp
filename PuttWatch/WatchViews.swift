@@ -186,12 +186,12 @@ struct RollPicker: View {
     @Environment(PracticeModel.self) private var model
     @Environment(\.dismiss) private var dismiss
     let stroke: StrokeMetrics
-    /// In display units (feet or metres).
-    @State private var value: Double = 10
+    /// In paces.
+    @State private var value: Double = 3
     @State private var loaded = false
 
-    private var step: Double { model.settings.usesMetric ? 0.5 : 1 }
-    private var range: ClosedRange<Double> { model.settings.usesMetric ? 0.5...30 : 1...99 }
+    private let step = Units.paceStep
+    private let range: ClosedRange<Double> = 0.5...40
 
     var body: some View {
         let u = model.units
@@ -204,7 +204,7 @@ struct RollPicker: View {
                     .buttonStyle(.bordered)
                     .clipShape(Circle())
                     .accessibilityLabel("Shorter")
-                Text(u.metric ? String(format: "%.1f", value) : String(format: "%.0f", value))
+                Text(Units.paceNumber(value))
                     .font(.system(size: 44, weight: .semibold, design: .rounded).monospacedDigit())
                     .frame(minWidth: 70)
                     .contentTransition(.numericText())
@@ -213,7 +213,7 @@ struct RollPicker: View {
                     .clipShape(Circle())
                     .accessibilityLabel("Longer")
             }
-            Text(u.distanceUnit)
+            Text(value == 1 ? "pace" : "paces")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
             HStack {

@@ -206,7 +206,7 @@ struct DistanceEntry: View {
             .font(.subheadline)
 
             if stroke.distance == nil {
-                Text("Enter it here or on your watch. Leave it blank for a practice swing; it still counts toward tempo, but not your chart.")
+                Text("Pace it off with your normal walking step and enter it to the nearest half pace, here or on your watch. Leave it blank for a practice swing; it still counts toward tempo, but not your chart.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
@@ -228,13 +228,17 @@ struct DistanceEntry: View {
 
     private func save() {
         guard let v = parsed else { return }
-        stroke.distance = settings.units.metres(fromDistanceValue: v)
+        stroke.distance = settings.units.metres(fromDistanceValue: Units.roundedPaces(v))
         try? context.save()
         inbox.rollChanged(stroke)
         focused = false
     }
 
-    private func format(_ v: Double) -> String { String(format: v < 10 ? "%.1f" : "%.0f", v) }
+    /// Paces to the nearest half, typed the way a keypad can: "4.5", "12".
+    private func format(_ v: Double) -> String {
+        let p = Units.roundedPaces(v)
+        return p == p.rounded() ? String(format: "%.0f", p) : String(format: "%.1f", p)
+    }
 }
 
 // MARK: - Session list

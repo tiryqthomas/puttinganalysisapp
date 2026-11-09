@@ -49,7 +49,7 @@ final class PracticeModel: NSObject, WCSessionDelegate {
     }
 
     /// Starting value for the roll picker: what the stroke chart predicts for
-    /// this backswing, else the last roll entered, else 10 ft (3 m).
+    /// this backswing, else the last roll entered, else 3 paces.
     func suggestedRoll(for m: StrokeMetrics) -> Double {
         let back = settings.geometry.length(forAngle: m.backswingAngle)
         if let chart = settings.chart {
@@ -61,7 +61,7 @@ final class PracticeModel: NSObject, WCSessionDelegate {
         if let last = strokes.last(where: { rolls[$0.id] != nil }).flatMap({ rolls[$0.id] }) {
             return last
         }
-        return settings.usesMetric ? 3 : 10 * 0.3048
+        return units.metres(fromDistanceValue: 3)
     }
 
     /// Records how far the ball rolled for a stroke (nil for a practice

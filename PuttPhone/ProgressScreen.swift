@@ -82,7 +82,7 @@ struct ProgressScreen: View {
         switch metric {
         case .overall: "Average of the scores below. 100 means every stroke matched."
         case .tempo: "How steady your backswing-to-downswing ratio stays, whatever the length."
-        case .rhythm: "How steady your total stroke time stays. Good putters take about the same time for a 5 ft and a 40 ft putt."
+        case .rhythm: "How steady your total stroke time stays. Good putters take about the same time for a 2-pace and a 12-pace putt."
         case .proportion: "How steady your follow-through is relative to your backswing."
         case .distance: "How closely each roll matched what your stroke chart predicts for that backswing."
         }
