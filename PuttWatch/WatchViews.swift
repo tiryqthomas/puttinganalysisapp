@@ -342,17 +342,25 @@ struct WatchScoreRow: View {
 struct StatusLine: View {
     @Environment(PracticeModel.self) private var model
 
+    private var text: String {
+        if model.lastRejected != nil, model.status == .settling { return "Not a stroke. Hold still" }
+        switch model.status {
+        case .settling, .idle: return "Hold still at address"
+        case .ready: return "Ready"
+        case .capturing: return "Measuring"
+        }
+    }
+
+    private var symbol: String {
+        if model.lastRejected != nil, model.status == .settling { return "xmark.circle" }
+        switch model.status {
+        case .settling, .idle: return "hand.raised"
+        case .ready: return "checkmark.circle"
+        case .capturing: return "waveform.path"
+        }
+    }
+
     var body: some View {
-        let (text, symbol): (String, String) = {
-            if model.lastRejected != nil, model.status == .settling {
-                return ("Not a stroke. Hold still", "xmark.circle")
-            }
-            switch model.status {
-            case .settling, .idle: return ("Hold still at address", "hand.raised")
-            case .ready: return ("Ready", "checkmark.circle")
-            case .capturing: return ("Measuring", "waveform.path")
-            }
-        }()
         Label(text, systemImage: symbol)
             .font(.footnote.weight(.medium))
             .foregroundStyle(model.status == .ready ? Color.accentColor : .secondary)
